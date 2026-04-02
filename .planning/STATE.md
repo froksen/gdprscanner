@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Roadmap written to .planning/ROADMAP.md — Phase 1 ready to plan
-last_updated: "2026-04-02T03:34:47.477Z"
-last_activity: 2026-04-02 -- Phase 01 execution started
+stopped_at: Completed 01-02-PLAN.md — threading architecture (TrayApp, UIThread, ScanScheduler, main.py)
+last_updated: "2026-04-02T03:44:07.881Z"
+last_activity: 2026-04-02
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 ## Current Position
 
 Phase: 01 (core-scaffolding) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 01
-Last activity: 2026-04-02 -- Phase 01 execution started
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-02
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-core-scaffolding P02 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - Roadmap: pystray owns main thread; tkinter runs on worker thread — all cross-thread communication via queue.Queue (hard Win32 constraint, not a preference)
 - Roadmap: CPR mod-11 checksum used as confidence booster only, NOT as filter — post-2007 CPR numbers do not conform; date validation is the primary gate
 - Roadmap: Phase 4 packaging isolated from Phase 3 logic to keep application bugs and packaging bugs distinct
+- [Phase 01-core-scaffolding]: pystray owns main thread (TrayApp.run() blocks); tkinter runs on daemon UIThread — hard Win32 constraint
+- [Phase 01-core-scaffolding]: All cross-thread events flow through a single queue.Queue — typed dataclass events from Plan 01
+- [Phase 01-core-scaffolding]: ScanScheduler uses threading.Event.wait(timeout=) not time.sleep() — allows immediate wakeup on stop()
 
 ### Pending Todos
 
@@ -75,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01
-Stopped at: Roadmap written to .planning/ROADMAP.md — Phase 1 ready to plan
+Last session: 2026-04-02T03:44:07.874Z
+Stopped at: Completed 01-02-PLAN.md — threading architecture (TrayApp, UIThread, ScanScheduler, main.py)
 Resume file: None

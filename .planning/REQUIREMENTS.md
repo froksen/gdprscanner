@@ -7,10 +7,10 @@
 
 ### System Tray & Livscyklus
 
-- [ ] **TRAY-01**: Programmet starter i Windows system tray (ikke et synligt vindue)
-- [ ] **TRAY-02**: Tray-ikon har en kontekstmenu med: "Åbn indstillinger", "Scan nu", "Afslut"
-- [ ] **TRAY-03**: Programmet kører stabilt i baggrunden uden at blokere UI eller bruge unødvendige ressourcer
-- [ ] **TRAY-04**: pystray ejer main thread; tkinter kører på worker thread (Win32-krav)
+- [x] **TRAY-01**: Programmet starter i Windows system tray (ikke et synligt vindue)
+- [x] **TRAY-02**: Tray-ikon har en kontekstmenu med: "Åbn indstillinger", "Scan nu", "Afslut"
+- [x] **TRAY-03**: Programmet kører stabilt i baggrunden uden at blokere UI eller bruge unødvendige ressourcer
+- [x] **TRAY-04**: pystray ejer main thread; tkinter kører på worker thread (Win32-krav)
 
 ### Konfigurationsdialog
 
@@ -57,9 +57,9 @@
 
 ### Scanning & Planlægning
 
-- [ ] **SCHED-01**: Automatisk scanning sker med den konfigurerede frekvens
-- [ ] **SCHED-02**: Brugeren kan manuelt starte en scanning fra tray-menuen
-- [ ] **SCHED-03**: Scanning kører i en baggrundstråd og blokerer ikke UI
+- [x] **SCHED-01**: Automatisk scanning sker med den konfigurerede frekvens
+- [x] **SCHED-02**: Brugeren kan manuelt starte en scanning fra tray-menuen
+- [x] **SCHED-03**: Scanning kører i en baggrundstråd og blokerer ikke UI
 
 ## v2 Requirements
 
@@ -92,10 +92,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TRAY-01 | Phase 1 | Pending |
-| TRAY-02 | Phase 1 | Pending |
-| TRAY-03 | Phase 1 | Pending |
-| TRAY-04 | Phase 1 | Pending |
+| TRAY-01 | Phase 1 | Complete |
+| TRAY-02 | Phase 1 | Complete |
+| TRAY-03 | Phase 1 | Complete |
+| TRAY-04 | Phase 1 | Complete |
 | CONF-01 | Phase 1 | Pending |
 | CONF-02 | Phase 1 | Pending |
 | CONF-03 | Phase 1 | Pending |
@@ -124,9 +124,9 @@
 | IGNR-01 | Phase 3 | Pending |
 | IGNR-02 | Phase 3 | Pending |
 | IGNR-03 | Phase 3 | Pending |
-| SCHED-01 | Phase 1 | Pending |
-| SCHED-02 | Phase 1 | Pending |
-| SCHED-03 | Phase 1 | Pending |
+| SCHED-01 | Phase 1 | Complete |
+| SCHED-02 | Phase 1 | Complete |
+| SCHED-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 33 total
