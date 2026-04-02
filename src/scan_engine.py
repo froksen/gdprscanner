@@ -143,7 +143,9 @@ SENSITIVE_CATEGORY_ID_MAP = {
 
 EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.IGNORECASE)
 PHONE_INTERNATIONAL_PATTERN = re.compile(r"(?<!\d)(?:\+45|0045)[ -]?(?:\d{2}[ -]?){3}\d{2}(?!\d)")
-PHONE_PATTERN = re.compile(r"(?<!\d)(?:\d{2}[ -]?){3}\d{2}(?!\d)")
+# Kræver mellemrum som separator (XX XX XX XX) — bindestreg afvises bevidst
+# for at undgå falske positive på årsperioder som "2012-2021".
+PHONE_PATTERN = re.compile(r"(?<!\d)\d{2} \d{2} \d{2} \d{2}(?!\d)")
 CPR_PATTERN = re.compile(r"\b(\d{6})[- ]?(\d{4})\b")
 # Dansk IBAN: DK + 2 kontrolcifre + 4 registreringsnummer + 10 kontonummer = 18 tegn
 IBAN_DK_PATTERN = re.compile(r"\bDK\d{2}[ ]?\d{4}[ ]?\d{4}[ ]?\d{4}[ ]?\d{2}\b", re.IGNORECASE)
