@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Events, ConfigStore, tray icon image, requirements.txt
 - [x] 01-02-PLAN.md — TrayApp, UIThread, ScanScheduler, main.py entry point
-- [ ] 01-03-PLAN.md — 3-tab ConfigDialog and UIThread wiring
+- [x] 01-03-PLAN.md — 3-tab ConfigDialog and UIThread wiring
 **UI hint**: yes
 
 ### Phase 2: Scan Pipeline

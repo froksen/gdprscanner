@@ -14,11 +14,11 @@
 
 ### Konfigurationsdialog
 
-- [ ] **CONF-01**: Brugeren kan åbne en konfigurationsdialog fra tray-menuen
-- [ ] **CONF-02**: Brugeren kan tilføje og fjerne mapper der skal skannes
-- [ ] **CONF-03**: Brugeren kan sætte filaldergrænsen i dage (standard: 30)
-- [ ] **CONF-04**: Brugeren kan sætte scanningsfrekvens (f.eks. dagligt, hvert 6. time, ugentligt)
-- [ ] **CONF-05**: Brugeren kan vælge hvilke filtyper der indgår (.docx, .xlsx, .csv, .pdf, .txt, .log)
+- [x] **CONF-01**: Brugeren kan åbne en konfigurationsdialog fra tray-menuen
+- [x] **CONF-02**: Brugeren kan tilføje og fjerne mapper der skal skannes
+- [x] **CONF-03**: Brugeren kan sætte filaldergrænsen i dage (standard: 30)
+- [x] **CONF-04**: Brugeren kan sætte scanningsfrekvens (f.eks. dagligt, hvert 6. time, ugentligt)
+- [x] **CONF-05**: Brugeren kan vælge hvilke filtyper der indgår (.docx, .xlsx, .csv, .pdf, .txt, .log)
 - [x] **CONF-06**: Konfiguration persisteres i `%APPDATA%\GDPRScanner\config.json`
 
 ### Fil-filter (lag 1: filtype + filnavn)
@@ -96,11 +96,11 @@
 | TRAY-02 | Phase 1 | Complete |
 | TRAY-03 | Phase 1 | Complete |
 | TRAY-04 | Phase 1 | Complete |
-| CONF-01 | Phase 1 | Pending |
-| CONF-02 | Phase 1 | Pending |
-| CONF-03 | Phase 1 | Pending |
-| CONF-04 | Phase 1 | Pending |
-| CONF-05 | Phase 1 | Pending |
+| CONF-01 | Phase 1 | Complete |
+| CONF-02 | Phase 1 | Complete |
+| CONF-03 | Phase 1 | Complete |
+| CONF-04 | Phase 1 | Complete |
+| CONF-05 | Phase 1 | Complete |
 | CONF-06 | Phase 1 | Complete (01-01) |
 | FILT-01 | Phase 2 | Pending |
 | FILT-02 | Phase 2 | Pending |

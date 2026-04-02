@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md — threading architecture (TrayApp, UIThread, ScanScheduler, main.py)
-last_updated: "2026-04-02T03:44:07.881Z"
+stopped_at: "Completed 01-03-PLAN.md — config dialog (checkpoint: awaiting human verification)"
+last_updated: "2026-04-02T08:05:25.537Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 ## Current Position
 
 Phase: 01 (core-scaffolding) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-02
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-core-scaffolding P02 | 2 | 2 tasks | 4 files |
+| Phase 01 P03 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,7 @@ Recent decisions affecting current work:
 - [Phase 01-core-scaffolding]: pystray owns main thread (TrayApp.run() blocks); tkinter runs on daemon UIThread — hard Win32 constraint
 - [Phase 01-core-scaffolding]: All cross-thread events flow through a single queue.Queue — typed dataclass events from Plan 01
 - [Phase 01-core-scaffolding]: ScanScheduler uses threading.Event.wait(timeout=) not time.sleep() — allows immediate wakeup on stop()
+- [Phase 01-core-scaffolding]: ConfigDialog uses tk.Toplevel(root) per D-06; UIThread tracks _config_dialog to prevent duplicate dialogs
 
 ### Pending Todos
 
@@ -79,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-02T03:44:07.874Z
-Stopped at: Completed 01-02-PLAN.md — threading architecture (TrayApp, UIThread, ScanScheduler, main.py)
+Last session: 2026-04-02T08:05:25.534Z
+Stopped at: Completed 01-03-PLAN.md — config dialog (checkpoint: awaiting human verification)
 Resume file: None
