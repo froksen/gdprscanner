@@ -19,7 +19,7 @@
 - [ ] **CONF-03**: Brugeren kan sætte filaldergrænsen i dage (standard: 30)
 - [ ] **CONF-04**: Brugeren kan sætte scanningsfrekvens (f.eks. dagligt, hvert 6. time, ugentligt)
 - [ ] **CONF-05**: Brugeren kan vælge hvilke filtyper der indgår (.docx, .xlsx, .csv, .pdf, .txt, .log)
-- [ ] **CONF-06**: Konfiguration persisteres i `%APPDATA%\GDPRScanner\config.json`
+- [x] **CONF-06**: Konfiguration persisteres i `%APPDATA%\GDPRScanner\config.json`
 
 ### Fil-filter (lag 1: filtype + filnavn)
 
@@ -101,7 +101,7 @@
 | CONF-03 | Phase 1 | Pending |
 | CONF-04 | Phase 1 | Pending |
 | CONF-05 | Phase 1 | Pending |
-| CONF-06 | Phase 1 | Pending |
+| CONF-06 | Phase 1 | Complete (01-01) |
 | FILT-01 | Phase 2 | Pending |
 | FILT-02 | Phase 2 | Pending |
 | FILT-03 | Phase 2 | Pending |

@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. The scheduled scanner fires at the configured interval in the background without making the UI unresponsive
 **Plans:** 3 plans
 Plans:
-- [ ] 01-01-PLAN.md — Events, ConfigStore, tray icon image, requirements.txt
+- [x] 01-01-PLAN.md — Events, ConfigStore, tray icon image, requirements.txt
 - [ ] 01-02-PLAN.md — TrayApp, UIThread, ScanScheduler, main.py entry point
 - [ ] 01-03-PLAN.md — 3-tab ConfigDialog and UIThread wiring
 **UI hint**: yes
@@ -78,7 +78,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Scaffolding | 0/3 | Planned | - |
+| 1. Core Scaffolding | 1/3 | In Progress | - |
 | 2. Scan Pipeline | 0/? | Not started | - |
 | 3. Alert Dialog & Ignore List | 0/? | Not started | - |
 | 4. Packaging | 0/? | Not started | - |
