@@ -112,11 +112,14 @@ def apply_theme(root: tk.Tk) -> None:
 
     # ----- Combobox -----
     style.configure("TCombobox", fieldbackground=BG, background=BG,
-                    selectbackground=BLUE_LIGHT, selectforeground=TEXT,
-                    bordercolor=BORDER, padding=[4, 4])
+                    foreground=TEXT, selectbackground=BLUE_LIGHT,
+                    selectforeground=TEXT, bordercolor=BORDER, padding=[4, 4])
     style.map("TCombobox",
               bordercolor=[("focus", BLUE)],
-              fieldbackground=[("readonly", BG)])
+              fieldbackground=[("readonly", BG), ("disabled", BG2)],
+              foreground=[("readonly", TEXT), ("disabled", TEXT2)],
+              selectforeground=[("readonly", TEXT)],
+              selectbackground=[("readonly", BLUE_LIGHT)])
 
     # ----- Spinbox -----
     style.configure("TSpinbox", fieldbackground=BG, background=BG,
