@@ -12,7 +12,7 @@ Four phases take this project from an empty repo to a distributable Windows tray
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Scaffolding** - pystray/tkinter threading architecture, config dialog, persistence, scheduler skeleton
+- [x] **Phase 1: Core Scaffolding** - pystray/tkinter threading architecture, config dialog, persistence, scheduler skeleton
 - [ ] **Phase 2: Scan Pipeline** - File filtering, content extraction (docx/xlsx/csv/pdf/txt), PII detection (CPR/email/phone/headers)
 - [ ] **Phase 3: Alert Dialog & Ignore List** - User decision loop (Delete/Keep/Ignore permanent), ignore list persistence
 - [ ] **Phase 4: Packaging** - PyInstaller onedir .exe with .spec file, tested on clean Windows environment
@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Events, ConfigStore, tray icon image, requirements.txt
 - [x] 01-02-PLAN.md — TrayApp, UIThread, ScanScheduler, main.py entry point
-- [x] 01-03-PLAN.md — 3-tab ConfigDialog and UIThread wiring
+- [x] 01-03-PLAN.md — 3-tab ConfigDialog and UIThread wiring (human verified 2026-04-02)
 **UI hint**: yes
 
 ### Phase 2: Scan Pipeline
@@ -78,7 +78,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Scaffolding | 1/3 | In Progress | - |
+| 1. Core Scaffolding | 3/3 | Complete | 2026-04-02 |
 | 2. Scan Pipeline | 0/? | Not started | - |
 | 3. Alert Dialog & Ignore List | 0/? | Not started | - |
 | 4. Packaging | 0/? | Not started | - |

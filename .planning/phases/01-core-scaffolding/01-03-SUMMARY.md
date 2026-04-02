@@ -21,9 +21,9 @@ decisions:
   - "UIThread._config_dialog tracks instance to prevent duplicate dialog windows"
   - "_config_dialog renamed from config_dialog (private convention) to match plan spec"
 metrics:
-  duration: "~2 minutes"
+  duration: "~5 minutes"
   completed_date: "2026-04-02"
-  tasks_completed: 2
+  tasks_completed: 3
   files_changed: 2
 requirements_addressed: [CONF-01, CONF-02, CONF-03, CONF-04, CONF-05]
 ---
@@ -63,12 +63,13 @@ Module-level `FREQUENCY_OPTIONS`, `FREQ_DISPLAY_TO_MINUTES`, and `FREQ_MINUTES_T
 |------|--------|-------------|
 | Task 1 | 8bde1b5 | feat(01-03): create 3-tab ConfigDialog (Mapper, Regler, Scanning) |
 | Task 2 | 5474bbc | feat(01-03): wire ConfigDialog into UIThread._open_config_dialog |
+| Task 3 | (human-verify) | Human verified full application end-to-end |
 
 ## Verification
 
 Pre-flight import check passed — all src/*.py modules import without error.
 
-Human verification pending (Task 3 checkpoint): full application start, tray icon, dialog open from menu, settings save/persist across restart, clean shutdown.
+Human verification complete (Task 3): full application start confirmed, tray icon visible, config dialog opens from tray menu, settings save and persist across restart, clean shutdown verified.
 
 ## Deviations from Plan
 
