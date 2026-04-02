@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, Optional
 
 
 @dataclass
@@ -22,3 +22,12 @@ class ScanCompleteEvent:
     type: Literal["scan_complete"] = "scan_complete"
     files_scanned: int = 0
     findings_count: int = 0
+
+
+@dataclass
+class FindingEvent:
+    type: Literal["finding"] = "finding"
+    path: str = ""
+    reason: str = ""
+    snippet: Optional[str] = None
+    age_days: Optional[int] = None

@@ -179,7 +179,7 @@ class ConfigDialog:
         self._age_var = tk.IntVar(value=self._config.get("file_age_days", 30))
         ttk.Spinbox(
             age_row,
-            from_=1,
+            from_=0,
             to=3650,
             textvariable=self._age_var,
             width=6,

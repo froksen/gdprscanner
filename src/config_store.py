@@ -12,6 +12,7 @@ class ConfigStore:
         "file_age_days": 30,
         "scan_interval_minutes": 1440,
         "file_types": [".docx", ".xlsx", ".xls", ".csv", ".pdf", ".txt", ".log"],
+        "ignore_paths": [],
     }
 
     def __init__(self) -> None:
@@ -39,3 +40,23 @@ class ConfigStore:
 
     def get_config(self) -> dict:
         return copy.deepcopy(self.config)
+
+    def get_ignore_paths(self) -> list[str]:
+        return list(self.config.get("ignore_paths", []))
+
+    def add_ignore_path(self, path: str) -> None:
+        current = set(self.config.get("ignore_paths", []))
+        normalized = os.path.normcase(os.path.abspath(path))
+        if normalized not in current:
+            current.add(normalized)
+            self.config["ignore_paths"] = list(current)
+            self.save(self.config)
+
+    def remove_ignore_path(self, path: str) -> None:
+        current = set(self.config.get("ignore_paths", []))
+        normalized = os.path.normcase(os.path.abspath(path))
+        if normalized in current:
+            current.remove(normalized)
+            self.config["ignore_paths"] = list(current)
+            self.save(self.config)
+
