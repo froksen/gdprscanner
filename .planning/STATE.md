@@ -70,6 +70,10 @@ Recent decisions affecting current work:
 - [Phase 01-core-scaffolding]: ScanScheduler uses threading.Event.wait(timeout=) not time.sleep() — allows immediate wakeup on stop()
 - [Phase 01-core-scaffolding]: ConfigDialog uses tk.Toplevel(root) per D-06; UIThread tracks _config_dialog to prevent duplicate dialogs
 
+### Roadmap Evolution
+
+- Phase 5 added: GUI-pyntning
+
 ### Pending Todos
 
 None yet.

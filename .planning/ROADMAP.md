@@ -86,3 +86,13 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 2. Scan Pipeline | 3/3 | Complete | 2026-04-02 |
 | 3. Alert Dialog & Ignore List | 0/? | Complete | 2026-04-02 |
 | 4. Packaging | 0/? | Not started | - |
+
+### Phase 5: GUI-pyntning
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 5 to break down)
