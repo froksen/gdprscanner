@@ -86,6 +86,12 @@ class ConfigDialog:
         self._build_regler_tab()
         self._build_scanning_tab()
 
+        # Auto-save: trace all scalar variables (type_vars traced after build)
+        self._age_var.trace_add("write", self._autosave)
+        self._freq_var.trace_add("write", self._autosave)
+        for var in self._type_vars.values():
+            var.trace_add("write", self._autosave)
+
         # Footer: "Scan nu" left, "Gem og luk" right
         footer_frame = ttk.Frame(self.dialog)
         footer_frame.pack(fill="x", padx=16, pady=12)
@@ -170,7 +176,7 @@ class ConfigDialog:
 
         ttk.Label(
             frame,
-            text="Scan kun filer \u00e6ldre end:",
+            text="Scan kun filer \u00e6ldre end (0 = alle filer):",
         ).pack(anchor="w", padx=16, pady=(0, 4))
 
         age_row = ttk.Frame(frame)
@@ -285,6 +291,7 @@ class ConfigDialog:
         if folder in existing:
             return
         self._folder_listbox.insert(tk.END, folder)
+        self._autosave()
 
     def _remove_folder(self) -> None:
         """Remove selected folder from listbox."""
@@ -293,6 +300,7 @@ class ConfigDialog:
             return
         self._folder_listbox.delete(selection[0])
         self._remove_btn.config(state="disabled")
+        self._autosave()
 
     def _on_listbox_select(self, event) -> None:
         """Enable/disable Fjern valgt based on current selection."""
@@ -301,25 +309,30 @@ class ConfigDialog:
         else:
             self._remove_btn.config(state="disabled")
 
-    def _save_and_close(self) -> None:
-        """Read all widget values, save atomically via ConfigStore, destroy dialog (D-07)."""
-        folders = list(self._folder_listbox.get(0, tk.END))
-        age = self._age_var.get()
-        types = [ext for ext, var in self._type_vars.items() if var.get()]
-        minutes = FREQ_DISPLAY_TO_MINUTES[self._freq_var.get()]
-
-        config = {
-            "scan_folders": folders,
-            "file_age_days": age,
-            "scan_interval_minutes": minutes,
-            "file_types": types,
+    def _collect_config(self) -> dict:
+        """Read all widget values and return config dict."""
+        return {
+            "scan_folders": list(self._folder_listbox.get(0, tk.END)),
+            "file_age_days": self._age_var.get(),
+            "scan_interval_minutes": FREQ_DISPLAY_TO_MINUTES[self._freq_var.get()],
+            "file_types": [ext for ext, var in self._type_vars.items() if var.get()],
         }
+
+    def _autosave(self, *_) -> None:
+        """Save current widget values immediately."""
+        config = self._collect_config()
         self.config_store.save(config)
-        logging.info("Config saved: %s", config)
+        logging.debug("Config auto-gemt")
+
+    def _save_and_close(self) -> None:
+        """Save atomically via ConfigStore and destroy dialog (D-07)."""
+        self._autosave()
+        logging.info("Config gemt og dialog lukket")
         self.dialog.destroy()
 
     def _on_close(self) -> None:
-        """X button handler — discard changes, destroy dialog."""
+        """X button handler — save and destroy dialog."""
+        self._autosave()
         self.dialog.destroy()
 
     def _on_destroy(self, event) -> None:

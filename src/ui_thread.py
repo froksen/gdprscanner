@@ -92,6 +92,7 @@ class UIThread:
                     reason=finding.reason,
                     snippet=finding.snippet,
                     age_days=finding.age_days,
+                    line_number=finding.line_number,
                 )
             )
         self.event_queue.put(ScanCompleteEvent(files_scanned=result.files_scanned, findings_count=len(result.findings)))
@@ -113,23 +114,35 @@ class UIThread:
         self._finding_dialog = tk.Toplevel(self.root)
         self._finding_dialog.title("GDPR Scanner — Fundet PII")
         self._finding_dialog.grab_set()
+        self._finding_dialog.minsize(500, 300)
 
         ttl = f"Fundet: {event.reason}"
         ttk.Label(self._finding_dialog, text=ttl, font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
 
         # Description of violation
         desc = self._get_violation_description(event.reason)
-        ttk.Label(self._finding_dialog, text=desc, wraplength=400).pack(anchor="w", padx=16, pady=(0, 8))
+        ttk.Label(self._finding_dialog, text=desc, wraplength=460).pack(anchor="w", padx=16, pady=(0, 8))
 
-        ttk.Label(self._finding_dialog, text=f"Fil: {event.path}").pack(anchor="w", padx=16, pady=(0, 4))
+        # File path (clickable-looking label)
+        ttk.Label(self._finding_dialog, text=f"Fil: {event.path}").pack(anchor="w", padx=16, pady=(0, 2))
         if event.age_days is not None:
             ttk.Label(self._finding_dialog, text=f"Filalder: {event.age_days} dage").pack(anchor="w", padx=16, pady=(0, 4))
+
+        # Snippet with line number
         if event.snippet:
-            ttk.Label(self._finding_dialog, text=f"Snippet: {event.snippet}").pack(anchor="w", padx=16, pady=(0, 4))
+            loc = f"Linje {event.line_number}: " if event.line_number is not None else ""
+            snippet_frame = ttk.LabelFrame(self._finding_dialog, text="Fundsted")
+            snippet_frame.pack(fill="x", padx=16, pady=(4, 8))
+            snippet_text = tk.Text(snippet_frame, height=3, wrap="word", font=("Consolas", 9),
+                                   state="normal", bg="#f8f8f8", relief="flat")
+            snippet_text.insert("1.0", f"{loc}{event.snippet}")
+            snippet_text.config(state="disabled")
+            snippet_text.pack(fill="x", padx=8, pady=6)
 
         button_frame = ttk.Frame(self._finding_dialog)
-        button_frame.pack(fill="x", padx=16, pady=16)
+        button_frame.pack(fill="x", padx=16, pady=12)
 
+        ttk.Button(button_frame, text="Åbn fil", command=lambda: self._open_file(event.path)).pack(side="left", padx=4)
         ttk.Button(button_frame, text="Slet fil", command=lambda: self._handle_finding_action(event, "delete")).pack(side="left", padx=4)
         ttk.Button(button_frame, text="Behold", command=lambda: self._handle_finding_action(event, "keep")).pack(side="left", padx=4)
         ttk.Button(button_frame, text="Ignorer permanent", command=lambda: self._handle_finding_action(event, "ignore")).pack(side="left", padx=4)
@@ -156,16 +169,31 @@ class UIThread:
 
         self._show_next_finding_if_idle()
 
+    def _open_file(self, path: str) -> None:
+        """Open file with default application."""
+        try:
+            os.startfile(path)
+        except Exception as e:
+            logging.warning("Kunne ikke åbne fil '%s': %s", path, e)
+
     def _get_violation_description(self, reason: str) -> str:
         descriptions = {
-            "CPR match": "Filen indeholder et dansk CPR-nummer, som er følsomme personoplysninger under GDPR.",
-            "Email match": "Filen indeholder en dansk e-mailadresse (.dk), som kan være personlige oplysninger.",
+            "CPR match": "Filen indeholder et dansk CPR-nummer — fortrolige personoplysninger under dansk databeskyttelseslov § 11.",
+            "Email match": "Filen indeholder en e-mailadresse, som er personlige oplysninger under GDPR.",
             "Phone match": "Filen indeholder et dansk telefonnummer, som er personlige oplysninger.",
+            "IBAN match": "Filen indeholder et dansk IBAN-nummer (bankkontooplysninger), som er personlige oplysninger.",
+            "Kreditkortnummer match": "Filen indeholder et kreditkortnummer, som er følsomme finansielle personoplysninger.",
             "Spreadsheet header indicates PII": "Regnearket har kolonneoverskrifter der tyder på personoplysninger (f.eks. CPR, Navn).",
         }
         if reason.startswith("Filename contains keyword"):
-            return "Filnavnet indeholder ord der tyder på følsomt indhold (f.eks. 'cpr', 'kunde')."
-        return descriptions.get(reason, "Filen indeholder potentielt følsomme oplysninger.")
+            return "Filnavnet indeholder ord der tyder på følsomt indhold (f.eks. 'cpr', 'journal', 'straffeattest')."
+        if reason.startswith("Særlig kategori:"):
+            category = reason.replace("Særlig kategori: ", "")
+            return (
+                f"Filen indeholder nøgleord der tyder på særlig kategori af personoplysninger: {category}. "
+                "Disse kræver eksplicit retsgrundlag under GDPR art. 9."
+            )
+        return descriptions.get(reason, "Filen indeholder potentielt følsomme personoplysninger.")
 
     def _abort_scan(self) -> None:
         logging.info("Scan aborted by user")

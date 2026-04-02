@@ -31,3 +31,4 @@ class FindingEvent:
     reason: str = ""
     snippet: Optional[str] = None
     age_days: Optional[int] = None
+    line_number: Optional[int] = None

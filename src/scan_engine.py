@@ -22,14 +22,94 @@ CPR_FILENAME_KEYS = [
     "kaldenavn",
     "adresse",
     "fortrolig",
+    "journal",
+    "sygejournal",
+    "lægeerklæring",
+    "straffeattest",
+    "fagforening",
+    "lønliste",
+    "lønseddel",
+    "ansatte",
+    "medarbejder",
+    "ansøgning",
+    "kreditkort",
+    "bankkonto",
 ]
 
-HEADER_KEYS = ["cpr", "navn", "adresse", "fodselsdato", "fødselsdato", "birthdate", "name", "address"]
+HEADER_KEYS = [
+    # Identifikation
+    "cpr", "personnummer", "person_id", "personid", "national_id", "ssn",
+    # Navn og kontakt
+    "navn", "name", "fornavn", "efternavn", "firstname", "lastname", "surname",
+    "adresse", "address", "gade", "street", "postnr", "postnummer", "zip", "postcode",
+    "telefon", "phone", "mobil", "mobile", "tlf",
+    "email", "e-mail", "mail",
+    # Datoer
+    "fødselsdato", "fodselsdato", "birthdate", "birthday", "birth_date", "fødselsdår",
+    # Økonomi
+    "løn", "salary", "indkomst", "income", "lønoplysning",
+    "kontonr", "kontonummer", "account_number", "iban", "bankkonto",
+    "kreditkort", "credit_card",
+    # Helbred
+    "diagnose", "diagnosis", "sygdom", "disease", "helbredsstatus", "health",
+    "medicinering", "medication", "behandling", "treatment",
+    # Særlige kategorier
+    "religion", "trosretning", "faith",
+    "etnicitet", "ethnicity", "nationalitet", "nationality",
+    "fagforening", "union",
+    "politisk", "political",
+    "seksuel", "sexual",
+    "genetisk", "genetic",
+]
 
-EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.dk\b", re.IGNORECASE)
+# Indhold-nøgleord for særlige kategorier (GDPR art. 9)
+SENSITIVE_CATEGORY_KEYWORDS = {
+    "Helbredsoplysninger": [
+        "diagnose", "sygejournal", "patientjournal", "medicinering",
+        "lægeerklæring", "helbredsoplysning", "sygdomshistorie",
+        "psykiatrisk", "psykologjournal",
+    ],
+    "Racemæssig/etnisk oprindelse": [
+        "racemæssig oprindelse", "etnisk oprindelse", "racetilhørsforhold",
+        "etnisk baggrund",
+    ],
+    "Politisk overbevisning": [
+        "politisk overbevisning", "politisk tilhørsforhold", "partibog",
+        "politisk parti", "partitilhørsforhold",
+    ],
+    "Religiøs overbevisning": [
+        "religiøs overbevisning", "trosbekendelse", "religiøst tilhørsforhold",
+    ],
+    "Fagforeningsmedlemskab": [
+        "fagforeningsmedlemskab", "fagforbund", "fagforeningsoplysning",
+    ],
+    "Genetiske oplysninger": [
+        "genetisk profil", "dna-profil", "genetiske oplysninger",
+        "dna-analyse", "genetisk test",
+    ],
+    "Biometriske oplysninger": [
+        "fingeraftryk", "ansigtsgenkendelse", "iris-scanning",
+        "biometrisk identifikation", "stemmegenkendelse",
+    ],
+    "Seksuel orientering": [
+        "seksuel orientering", "seksuel præference",
+    ],
+    "Strafbare forhold": [
+        "straffeattest", "strafferegister", "kriminalregister",
+        "straffedom", "straffesag",
+    ],
+}
+
+EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.IGNORECASE)
 PHONE_INTERNATIONAL_PATTERN = re.compile(r"(?<!\d)(?:\+45|0045)[ -]?(?:\d{2}[ -]?){3}\d{2}(?!\d)")
 PHONE_PATTERN = re.compile(r"(?<!\d)(?:\d{2}[ -]?){3}\d{2}(?!\d)")
 CPR_PATTERN = re.compile(r"\b(\d{6})[- ]?(\d{4})\b")
+# Dansk IBAN: DK + 2 kontrolcifre + 4 registreringsnummer + 10 kontonummer = 18 tegn
+IBAN_DK_PATTERN = re.compile(r"\bDK\d{2}[ ]?\d{4}[ ]?\d{4}[ ]?\d{4}[ ]?\d{2}\b", re.IGNORECASE)
+# Kreditkort: Visa (4), Mastercard (51-55), Amex (34/37), Discover (6011)
+CREDIT_CARD_PATTERN = re.compile(
+    r"\b(?:4[0-9]{3}|5[1-5][0-9]{2}|3[47][0-9]{2}|6011)(?:[ -]?\d{4}){3}\b"
+)
 
 
 @dataclass
@@ -38,6 +118,7 @@ class Finding:
     reason: str
     snippet: Optional[str] = None
     age_days: Optional[int] = None
+    line_number: Optional[int] = None
 
 
 @dataclass
@@ -72,29 +153,64 @@ class ScanEngine:
                 return f"Filename contains keyword '{token}'"
         return None
 
-    def _matches_cpr(self, text: str) -> Optional[str]:
+    def _line_number_of(self, text: str, pos: int) -> int:
+        """Return 1-based line number for character position pos in text."""
+        return text[:pos].count("\n") + 1
+
+    def _matches_cpr(self, text: str) -> Optional[tuple]:
+        """Return (snippet, line_number) or None."""
         for match in CPR_PATTERN.finditer(text):
-            d, i = match.group(1), match.group(2)
+            d = match.group(1)
             day = int(d[0:2])
             month = int(d[2:4])
-            year = int(d[4:6])
             if month < 1 or month > 12:
                 continue
             if not (1 <= day <= 31 or 41 <= day <= 71):
                 continue
-            return match.group(0)
+            return match.group(0), self._line_number_of(text, match.start())
         return None
 
-    def _matches_email(self, text: str) -> Optional[str]:
+    def _matches_email(self, text: str) -> Optional[tuple]:
+        """Return (snippet, line_number) or None."""
         m = EMAIL_PATTERN.search(text)
-        return m.group(0) if m else None
+        if m:
+            return m.group(0), self._line_number_of(text, m.start())
+        return None
 
-    def _matches_phone(self, text: str) -> Optional[str]:
+    def _matches_phone(self, text: str) -> Optional[tuple]:
+        """Return (snippet, line_number) or None."""
         m = PHONE_INTERNATIONAL_PATTERN.search(text)
         if m:
-            return m.group(0)
+            return m.group(0), self._line_number_of(text, m.start())
         m = PHONE_PATTERN.search(text)
-        return m.group(0) if m else None
+        if m:
+            return m.group(0), self._line_number_of(text, m.start())
+        return None
+
+    def _matches_iban(self, text: str) -> Optional[tuple]:
+        """Return (snippet, line_number) or None for Danish IBAN."""
+        m = IBAN_DK_PATTERN.search(text)
+        if m:
+            return m.group(0), self._line_number_of(text, m.start())
+        return None
+
+    def _matches_credit_card(self, text: str) -> Optional[tuple]:
+        """Return (snippet, line_number) or None for credit card numbers."""
+        m = CREDIT_CARD_PATTERN.search(text)
+        if m:
+            return m.group(0), self._line_number_of(text, m.start())
+        return None
+
+    def _matches_sensitive_keywords(self, text: str) -> Optional[tuple]:
+        """Return (category_name, keyword, line_number) or None for sensitive category keywords."""
+        text_lower = text.lower()
+        for category, keywords in SENSITIVE_CATEGORY_KEYWORDS.items():
+            for kw in keywords:
+                idx = text_lower.find(kw)
+                if idx != -1:
+                    line_num = self._line_number_of(text, idx)
+                    return category, kw, line_num
+        return None
 
     def _header_match(self, header_row: List[str]) -> Optional[str]:
         for h in header_row:
@@ -271,15 +387,33 @@ class ScanEngine:
 
             cpr = self._matches_cpr(text)
             if cpr:
-                findings.append(Finding(str(path), "CPR match", cpr, age_days=age_days))
+                snippet, lnum = cpr
+                findings.append(Finding(str(path), "CPR match", snippet, age_days=age_days, line_number=lnum))
 
             email = self._matches_email(text)
             if email:
-                findings.append(Finding(str(path), "Email match", email, age_days=age_days))
+                snippet, lnum = email
+                findings.append(Finding(str(path), "Email match", snippet, age_days=age_days, line_number=lnum))
 
             phone = self._matches_phone(text)
             if phone:
-                findings.append(Finding(str(path), "Phone match", phone, age_days=age_days))
+                snippet, lnum = phone
+                findings.append(Finding(str(path), "Phone match", snippet, age_days=age_days, line_number=lnum))
+
+            iban = self._matches_iban(text)
+            if iban:
+                snippet, lnum = iban
+                findings.append(Finding(str(path), "IBAN match", snippet, age_days=age_days, line_number=lnum))
+
+            cc = self._matches_credit_card(text)
+            if cc:
+                snippet, lnum = cc
+                findings.append(Finding(str(path), "Kreditkortnummer match", snippet, age_days=age_days, line_number=lnum))
+
+            sensitive = self._matches_sensitive_keywords(text)
+            if sensitive:
+                category, kw, lnum = sensitive
+                findings.append(Finding(str(path), f"Særlig kategori: {category}", kw, age_days=age_days, line_number=lnum))
 
         except Exception as exc:
             logging.warning("Skipping file '%s' due to extraction error: %s", path, exc)
@@ -328,7 +462,7 @@ class ScanEngine:
                         logging.warning("Skipping file '%s' due to stat error", file_path)
                         continue
 
-                    if age_days < max_age_days:
+                    if max_age_days > 0 and age_days < max_age_days:
                         age_filtered_out += 1
                         logging.debug("File too new: %s (age %d < %d)", file_path, age_days, max_age_days)
                         continue
