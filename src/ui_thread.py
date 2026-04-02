@@ -9,6 +9,7 @@ from src.config_store import ConfigStore
 from src.events import OpenConfigEvent, ScanNowEvent, ShutdownEvent, ScanCompleteEvent, FindingEvent
 from src.config_dialog import ConfigDialog
 from src.scan_engine import ScanEngine
+from src import styles
 
 
 class UIThread:
@@ -45,14 +46,7 @@ class UIThread:
         self.root = tk.Tk()
         self.root.withdraw()  # hidden root — never shown (Pitfall 2)
 
-        # Apply Windows-native theme; fall back gracefully on other platforms
-        try:
-            ttk.Style().theme_use("vista")
-        except tk.TclError:
-            try:
-                ttk.Style().theme_use("clam")
-            except tk.TclError:
-                pass
+        styles.apply_theme(self.root)
 
         self._poll_queue()
         self.root.mainloop()
@@ -111,42 +105,91 @@ class UIThread:
         self._show_finding_dialog(event)
 
     def _show_finding_dialog(self, event: FindingEvent) -> None:
-        self._finding_dialog = tk.Toplevel(self.root)
-        self._finding_dialog.title("GDPR Scanner — Fundet PII")
-        self._finding_dialog.grab_set()
-        self._finding_dialog.minsize(500, 300)
+        accent, accent_bg = styles.severity_colors(event.reason)
 
-        ttl = f"Fundet: {event.reason}"
-        ttk.Label(self._finding_dialog, text=ttl, font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        dlg = tk.Toplevel(self.root)
+        dlg.configure(background=styles.BG)
+        dlg.title("GDPR Scanner — Fundet PII")
+        dlg.grab_set()
+        dlg.minsize(520, 320)
+        dlg.resizable(True, False)
+        self._finding_dialog = dlg
 
-        # Description of violation
+        # Coloured header band
+        header = tk.Frame(dlg, bg=accent, height=52)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        tk.Label(
+            header,
+            text=f"  {event.reason}",
+            bg=accent, fg="white",
+            font=("Segoe UI", 10, "bold"),
+            anchor="w",
+        ).place(relx=0, rely=0.5, anchor="w", x=12)
+
+        # Body
+        body = tk.Frame(dlg, bg=styles.BG)
+        body.pack(fill="both", expand=True, padx=20, pady=(14, 4))
+
+        # Violation description
         desc = self._get_violation_description(event.reason)
-        ttk.Label(self._finding_dialog, text=desc, wraplength=460).pack(anchor="w", padx=16, pady=(0, 8))
+        tk.Label(
+            body, text=desc, bg=styles.BG, fg=styles.TEXT2,
+            font=("Segoe UI", 9), wraplength=460, justify="left", anchor="w",
+        ).pack(anchor="w", pady=(0, 10))
 
-        # File path (clickable-looking label)
-        ttk.Label(self._finding_dialog, text=f"Fil: {event.path}").pack(anchor="w", padx=16, pady=(0, 2))
+        # Separator
+        tk.Frame(body, bg=styles.BORDER, height=1).pack(fill="x", pady=(0, 10))
+
+        # File info grid
+        info_frame = tk.Frame(body, bg=styles.BG)
+        info_frame.pack(fill="x")
+
+        def _info_row(parent, label, value, value_color=styles.TEXT):
+            row = tk.Frame(parent, bg=styles.BG)
+            row.pack(fill="x", pady=2)
+            tk.Label(row, text=label, bg=styles.BG, fg=styles.TEXT2,
+                     font=("Segoe UI", 9), width=10, anchor="w").pack(side="left")
+            tk.Label(row, text=value, bg=styles.BG, fg=value_color,
+                     font=("Segoe UI", 9), anchor="w", wraplength=380).pack(side="left")
+
+        _info_row(info_frame, "Fil:", event.path)
         if event.age_days is not None:
-            ttk.Label(self._finding_dialog, text=f"Filalder: {event.age_days} dage").pack(anchor="w", padx=16, pady=(0, 4))
+            _info_row(info_frame, "Alder:", f"{event.age_days} dage")
 
-        # Snippet with line number
+        # Snippet box
         if event.snippet:
             loc = f"Linje {event.line_number}: " if event.line_number is not None else ""
-            snippet_frame = ttk.LabelFrame(self._finding_dialog, text="Fundsted")
-            snippet_frame.pack(fill="x", padx=16, pady=(4, 8))
-            snippet_text = tk.Text(snippet_frame, height=3, wrap="word", font=("Consolas", 9),
-                                   state="normal", bg="#f8f8f8", relief="flat")
-            snippet_text.insert("1.0", f"{loc}{event.snippet}")
-            snippet_text.config(state="disabled")
-            snippet_text.pack(fill="x", padx=8, pady=6)
+            snip_outer = tk.Frame(body, bg=accent_bg, bd=0)
+            snip_outer.pack(fill="x", pady=(10, 0))
+            tk.Label(snip_outer, text="Fundsted", bg=accent_bg, fg=styles.TEXT2,
+                     font=("Segoe UI", 8)).pack(anchor="w", padx=10, pady=(6, 2))
+            snip_text = tk.Text(
+                snip_outer, height=2, wrap="word", font=("Consolas", 9),
+                bg=accent_bg, fg=styles.TEXT, relief="flat",
+                borderwidth=0, padx=10, pady=4, state="normal",
+            )
+            snip_text.insert("1.0", f"{loc}{event.snippet}")
+            snip_text.configure(state="disabled")
+            snip_text.pack(fill="x", padx=0, pady=(0, 8))
 
-        button_frame = ttk.Frame(self._finding_dialog)
-        button_frame.pack(fill="x", padx=16, pady=12)
+        # Action buttons
+        sep = tk.Frame(dlg, bg=styles.BORDER, height=1)
+        sep.pack(fill="x", padx=20, pady=(10, 0))
 
-        ttk.Button(button_frame, text="Åbn fil", command=lambda: self._open_file(event.path)).pack(side="left", padx=4)
-        ttk.Button(button_frame, text="Slet fil", command=lambda: self._handle_finding_action(event, "delete")).pack(side="left", padx=4)
-        ttk.Button(button_frame, text="Behold", command=lambda: self._handle_finding_action(event, "keep")).pack(side="left", padx=4)
-        ttk.Button(button_frame, text="Ignorer permanent", command=lambda: self._handle_finding_action(event, "ignore")).pack(side="left", padx=4)
-        ttk.Button(button_frame, text="Afbryd scanning", command=self._abort_scan).pack(side="right", padx=4)
+        btn_frame = ttk.Frame(dlg)
+        btn_frame.pack(fill="x", padx=16, pady=12)
+
+        ttk.Button(btn_frame, text="Åbn fil",
+                   command=lambda: self._open_file(event.path)).pack(side="left", padx=(0, 6))
+        ttk.Button(btn_frame, text="Slet fil", style="Danger.TButton",
+                   command=lambda: self._handle_finding_action(event, "delete")).pack(side="left", padx=(0, 6))
+        ttk.Button(btn_frame, text="Behold",
+                   command=lambda: self._handle_finding_action(event, "keep")).pack(side="left", padx=(0, 6))
+        ttk.Button(btn_frame, text="Ignorer permanent",
+                   command=lambda: self._handle_finding_action(event, "ignore")).pack(side="left", padx=(0, 6))
+        ttk.Button(btn_frame, text="Afbryd scanning",
+                   command=self._abort_scan).pack(side="right")
 
     def _handle_finding_action(self, event: FindingEvent, action: str) -> None:
         if action == "delete":

@@ -6,6 +6,7 @@ import logging
 
 from src.config_store import ConfigStore
 from src.events import ScanNowEvent
+from src import styles
 
 
 class _TextLogHandler(logging.Handler):
@@ -49,10 +50,10 @@ ALL_FILE_TYPES = [".docx", ".xlsx", ".xls", ".csv", ".pdf", ".txt", ".log"]
 class ConfigDialog:
     """3-tab configuration dialog as tk.Toplevel.
 
-    Tabs: Mapper | Regler | Scanning
+    Tabs: Scanning | Mapper | Regler
     Opens from UIThread._open_config_dialog via tk.Toplevel(root).
-    "Gem og luk" saves atomically via ConfigStore.save() and destroys dialog.
-    X button discards changes and destroys dialog.
+    Changes are auto-saved on every widget interaction.
+    X button and "Luk" both save and close.
     """
 
     def __init__(self, root: tk.Tk, config_store: ConfigStore, event_queue: queue.Queue | None = None) -> None:
@@ -62,42 +63,46 @@ class ConfigDialog:
 
         # Create Toplevel dialog (D-06: not a new tk.Tk root)
         self.dialog = tk.Toplevel(root)
+        self.dialog.configure(background=styles.BG)
         self.dialog.title("GDPR Scanner \u2014 Indstillinger")
-        self.dialog.minsize(480, 380)
+        self.dialog.minsize(520, 420)
 
         # Center dialog on screen
         screen_width = self.dialog.winfo_screenwidth()
         screen_height = self.dialog.winfo_screenheight()
-        x = (screen_width - 480) // 2
-        y = (screen_height - 380) // 2
+        x = (screen_width - 520) // 2
+        y = (screen_height - 420) // 2
         self.dialog.geometry(f"+{x}+{y}")
 
-        # X button discards changes (D-07 inverse — no save on close)
         self.dialog.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Load current config at dialog open time
         self._config = self.config_store.get_config()
 
-        # Build notebook with 3 tabs
+        # Build notebook — tabs in order: Scanning | Mapper | Regler
         self._notebook = ttk.Notebook(self.dialog)
-        self._notebook.pack(expand=True, fill="both", padx=16, pady=(16, 0))
+        self._notebook.pack(expand=True, fill="both", padx=0, pady=(0, 0))
 
+        self._build_scanning_tab()
         self._build_mapper_tab()
         self._build_regler_tab()
-        self._build_scanning_tab()
 
-        # Auto-save: trace all scalar variables (type_vars traced after build)
+        # Auto-save: trace all scalar variables
         self._age_var.trace_add("write", self._autosave)
         self._freq_var.trace_add("write", self._autosave)
         for var in self._type_vars.values():
             var.trace_add("write", self._autosave)
 
-        # Footer: "Scan nu" left, "Gem og luk" right
+        # Separator before footer
+        ttk.Separator(self.dialog, orient="horizontal").pack(fill="x")
+
+        # Footer
         footer_frame = ttk.Frame(self.dialog)
-        footer_frame.pack(fill="x", padx=16, pady=12)
+        footer_frame.pack(fill="x", padx=16, pady=10)
         ttk.Button(
             footer_frame,
-            text="Gem og luk",
+            text="Luk",
+            style="Primary.TButton",
             command=self._save_and_close,
         ).pack(side="right")
         ttk.Button(
@@ -110,20 +115,80 @@ class ConfigDialog:
     # Tab builders
     # ------------------------------------------------------------------
 
-    def _build_mapper_tab(self) -> None:
-        """Tab 0: Mapper — folder list management."""
+    def _build_scanning_tab(self) -> None:
+        """Tab 0: Scanning — scan frequency dropdown + activity log."""
         frame = ttk.Frame(self._notebook)
-        self._notebook.add(frame, text="Mapper")
+        frame.configure(style="TFrame")
+        self._notebook.add(frame, text="  Scanning  ")
 
-        ttk.Label(
+        # Section: Frequency
+        ttk.Label(frame, text="Scanningsfrekvens",
+                  style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(18, 4))
+        ttk.Label(frame, text="K\u00f8r automatisk scanning:",
+                  style="Caption.TLabel").pack(anchor="w", padx=20, pady=(0, 6))
+
+        current_minutes = self._config.get("scan_interval_minutes", 1440)
+        self._freq_var = tk.StringVar()
+        self._freq_var.set(FREQ_MINUTES_TO_DISPLAY.get(current_minutes, "Dagligt"))
+
+        ttk.Combobox(
             frame,
-            text="Mapper til scanning",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=(16, 8))
+            textvariable=self._freq_var,
+            values=[label for label, _ in FREQUENCY_OPTIONS],
+            state="readonly",
+            width=22,
+        ).pack(anchor="w", padx=20, pady=(0, 16))
+
+        ttk.Separator(frame, orient="horizontal").pack(fill="x", padx=20, pady=(0, 12))
+
+        # Section: Activity log
+        ttk.Label(frame, text="Aktivitetslog",
+                  style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(0, 6))
+
+        log_outer = tk.Frame(frame, bg=styles.BG2, bd=0)
+        log_outer.pack(fill="both", expand=True, padx=20, pady=(0, 4))
+
+        log_scroll = ttk.Scrollbar(log_outer, orient="vertical")
+        log_scroll.pack(side="right", fill="y")
+
+        self._log_text = tk.Text(
+            log_outer,
+            height=8,
+            state="disabled",
+            wrap="word",
+            yscrollcommand=log_scroll.set,
+            font=("Consolas", 8),
+            bg=styles.BG2,
+            fg=styles.TEXT,
+            relief="flat",
+            borderwidth=0,
+            padx=10,
+            pady=6,
+            insertbackground=styles.TEXT,
+        )
+        self._log_text.pack(side="left", fill="both", expand=True)
+        log_scroll.config(command=self._log_text.yview)
+
+        # Attach log handler
+        self._log_handler = _TextLogHandler(self._log_text)
+        self._log_handler.setLevel(logging.INFO)
+        logging.getLogger().addHandler(self._log_handler)
+
+        self.dialog.bind("<Destroy>", self._on_destroy)
+
+    def _build_mapper_tab(self) -> None:
+        """Tab 1: Mapper — folder list management."""
+        frame = ttk.Frame(self._notebook)
+        self._notebook.add(frame, text="  Mapper  ")
+
+        ttk.Label(frame, text="Mapper til scanning",
+                  style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(18, 6))
 
         # Listbox with vertical scrollbar
-        list_frame = ttk.Frame(frame)
-        list_frame.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+        list_frame = tk.Frame(frame, bg=styles.BG, bd=1,
+                              relief="solid", highlightthickness=0)
+        list_frame.configure(background=styles.BORDER)
+        list_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
 
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical")
         scrollbar.pack(side="right", fill="y")
@@ -133,8 +198,18 @@ class ConfigDialog:
             selectmode=tk.SINGLE,
             height=8,
             yscrollcommand=scrollbar.set,
+            bg=styles.BG,
+            fg=styles.TEXT,
+            selectbackground=styles.BLUE,
+            selectforeground="white",
+            activestyle="none",
+            relief="flat",
+            borderwidth=0,
+            highlightthickness=0,
+            font=("Segoe UI", 9),
         )
-        self._folder_listbox.pack(side="left", fill="both", expand=True)
+        self._folder_listbox.pack(side="left", fill="both", expand=True,
+                                  padx=1, pady=1)
         scrollbar.config(command=self._folder_listbox.yview)
 
         # Populate from config
@@ -143,7 +218,7 @@ class ConfigDialog:
 
         # Buttons row
         btn_frame = ttk.Frame(frame)
-        btn_frame.pack(anchor="w", padx=16, pady=(0, 16))
+        btn_frame.pack(anchor="w", padx=20, pady=(0, 16))
 
         ttk.Button(
             btn_frame,
@@ -159,28 +234,21 @@ class ConfigDialog:
         )
         self._remove_btn.pack(side="left")
 
-        # Enable/disable remove button on selection change
         self._folder_listbox.bind("<<ListboxSelect>>", self._on_listbox_select)
 
     def _build_regler_tab(self) -> None:
-        """Tab 1: Regler — file age threshold + file type checkboxes."""
+        """Tab 2: Regler — file age threshold + file type checkboxes."""
         frame = ttk.Frame(self._notebook)
-        self._notebook.add(frame, text="Regler")
+        self._notebook.add(frame, text="  Regler  ")
 
         # --- File age section ---
-        ttk.Label(
-            frame,
-            text="Filaldergr\u00e6nse",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=(16, 4))
-
-        ttk.Label(
-            frame,
-            text="Scan kun filer \u00e6ldre end (0 = alle filer):",
-        ).pack(anchor="w", padx=16, pady=(0, 4))
+        ttk.Label(frame, text="Filaldergr\u00e6nse",
+                  style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(18, 4))
+        ttk.Label(frame, text="Scan kun filer \u00e6ldre end (0 = alle filer):",
+                  style="Caption.TLabel").pack(anchor="w", padx=20, pady=(0, 6))
 
         age_row = ttk.Frame(frame)
-        age_row.pack(anchor="w", padx=16, pady=(0, 12))
+        age_row.pack(anchor="w", padx=20, pady=(0, 16))
 
         self._age_var = tk.IntVar(value=self._config.get("file_age_days", 30))
         ttk.Spinbox(
@@ -190,17 +258,16 @@ class ConfigDialog:
             textvariable=self._age_var,
             width=6,
         ).pack(side="left")
-        ttk.Label(age_row, text="dage").pack(side="left", padx=(8, 0))
+        ttk.Label(age_row, text="dage", style="Caption.TLabel").pack(side="left", padx=(8, 0))
+
+        ttk.Separator(frame, orient="horizontal").pack(fill="x", padx=20, pady=(0, 14))
 
         # --- File types section ---
-        ttk.Label(
-            frame,
-            text="Filtyper",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=(0, 4))
+        ttk.Label(frame, text="Filtyper",
+                  style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(0, 8))
 
         types_frame = ttk.Frame(frame)
-        types_frame.pack(anchor="w", padx=16, pady=(0, 16))
+        types_frame.pack(anchor="w", padx=20, pady=(0, 16))
 
         configured_types = self._config.get("file_types", [])
         self._type_vars: dict[str, tk.BooleanVar] = {}
@@ -213,80 +280,17 @@ class ConfigDialog:
                 types_frame,
                 text=ext,
                 variable=var,
-            ).grid(row=row, column=col, sticky="w", padx=8, pady=2)
-
-    def _build_scanning_tab(self) -> None:
-        """Tab 2: Scanning — scan frequency dropdown."""
-        frame = ttk.Frame(self._notebook)
-        self._notebook.add(frame, text="Scanning")
-
-        ttk.Label(
-            frame,
-            text="Scanningsfrekvens",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=(16, 4))
-
-        ttk.Label(
-            frame,
-            text="K\u00f8r automatisk scanning:",
-        ).pack(anchor="w", padx=16, pady=(0, 8))
-
-        current_minutes = self._config.get("scan_interval_minutes", 1440)
-        self._freq_var = tk.StringVar()
-        self._freq_var.set(
-            FREQ_MINUTES_TO_DISPLAY.get(current_minutes, "Dagligt")
-        )
-
-        ttk.Combobox(
-            frame,
-            textvariable=self._freq_var,
-            values=[label for label, _ in FREQUENCY_OPTIONS],
-            state="readonly",
-            width=20,
-        ).pack(anchor="w", padx=16, pady=(0, 16))
-
-        # --- Activity log section ---
-        ttk.Label(
-            frame,
-            text="Aktivitetslog",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", padx=16, pady=(0, 4))
-
-        log_frame = ttk.Frame(frame)
-        log_frame.pack(fill="both", expand=True, padx=16, pady=(0, 8))
-
-        log_scroll = ttk.Scrollbar(log_frame, orient="vertical")
-        log_scroll.pack(side="right", fill="y")
-
-        self._log_text = tk.Text(
-            log_frame,
-            height=8,
-            state="disabled",
-            wrap="word",
-            yscrollcommand=log_scroll.set,
-            font=("Consolas", 8),
-        )
-        self._log_text.pack(side="left", fill="both", expand=True)
-        log_scroll.config(command=self._log_text.yview)
-
-        # Attach log handler so log messages appear in this widget
-        self._log_handler = _TextLogHandler(self._log_text)
-        self._log_handler.setLevel(logging.INFO)
-        logging.getLogger().addHandler(self._log_handler)
-
-        # Remove handler when dialog is destroyed
-        self.dialog.bind("<Destroy>", self._on_destroy)
+            ).grid(row=row, column=col, sticky="w", padx=(0, 20), pady=3)
 
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
 
     def _add_folder(self) -> None:
-        """Open folder picker; silently deduplicate per UI-SPEC."""
+        """Open folder picker; silently deduplicate."""
         folder = filedialog.askdirectory(parent=self.dialog)
         if not folder:
-            return  # User cancelled
-        # Silent deduplication — check existing listbox entries
+            return
         existing = list(self._folder_listbox.get(0, tk.END))
         if folder in existing:
             return
@@ -325,7 +329,7 @@ class ConfigDialog:
         logging.debug("Config auto-gemt")
 
     def _save_and_close(self) -> None:
-        """Save atomically via ConfigStore and destroy dialog (D-07)."""
+        """Save and destroy dialog."""
         self._autosave()
         logging.info("Config gemt og dialog lukket")
         self.dialog.destroy()
