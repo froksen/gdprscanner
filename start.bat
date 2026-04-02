@@ -1,2 +1,2 @@
 @echo off
-python -m src.main
+start "" pythonw -m src.main
