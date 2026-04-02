@@ -13,6 +13,13 @@ class ConfigStore:
         "scan_interval_minutes": 1440,
         "file_types": [".docx", ".xlsx", ".xls", ".csv", ".pdf", ".txt", ".log"],
         "ignore_paths": [],
+        "detection_types": [
+            "cpr", "email", "phone",
+            "iban", "credit_card",
+            "health", "race_ethnicity", "political", "religion",
+            "trade_union", "genetics", "biometric", "sexual_orientation", "criminal",
+            "spreadsheet_headers", "filename_keywords",
+        ],
     }
 
     def __init__(self) -> None:

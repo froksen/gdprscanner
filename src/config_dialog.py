@@ -7,6 +7,7 @@ import logging
 from src.config_store import ConfigStore
 from src.events import ScanNowEvent
 from src import styles
+from src.scan_engine import ALL_DETECTION_TYPES
 
 
 class _TextLogHandler(logging.Handler):
@@ -91,6 +92,8 @@ class ConfigDialog:
         self._age_var.trace_add("write", self._autosave)
         self._freq_var.trace_add("write", self._autosave)
         for var in self._type_vars.values():
+            var.trace_add("write", self._autosave)
+        for var in self._detection_vars.values():
             var.trace_add("write", self._autosave)
 
         # Separator before footer
@@ -301,6 +304,40 @@ class ConfigDialog:
                 variable=var,
             ).grid(row=row, column=col, sticky="w", padx=(0, 20), pady=3)
 
+        ttk.Separator(frame, orient="horizontal").pack(fill="x", padx=20, pady=(4, 14))
+
+        # --- Detection types section ---
+        ttk.Label(frame, text="GDPR-elementer at søge efter",
+                  style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(0, 8))
+
+        enabled_detection = set(self._config.get("detection_types",
+                                                  [dt[0] for dt in ALL_DETECTION_TYPES]))
+        self._detection_vars: dict[str, tk.BooleanVar] = {}
+
+        # Group checkboxes by group name
+        current_group = None
+        group_frame = None
+        col_count = 0
+        row_count = 0
+        for det_id, label, group in ALL_DETECTION_TYPES:
+            if group != current_group:
+                current_group = group
+                ttk.Label(frame, text=group, style="Caption.TLabel").pack(
+                    anchor="w", padx=20, pady=(4, 2))
+                group_frame = ttk.Frame(frame)
+                group_frame.pack(anchor="w", padx=20, pady=(0, 4))
+                col_count = 0
+                row_count = 0
+
+            var = tk.BooleanVar(value=(det_id in enabled_detection))
+            self._detection_vars[det_id] = var
+            ttk.Checkbutton(group_frame, text=label, variable=var).grid(
+                row=row_count, column=col_count, sticky="w", padx=(0, 20), pady=2)
+            col_count += 1
+            if col_count >= 2:
+                col_count = 0
+                row_count += 1
+
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
@@ -339,6 +376,7 @@ class ConfigDialog:
             "file_age_days": self._age_var.get(),
             "scan_interval_minutes": FREQ_DISPLAY_TO_MINUTES[self._freq_var.get()],
             "file_types": [ext for ext, var in self._type_vars.items() if var.get()],
+            "detection_types": [det_id for det_id, var in self._detection_vars.items() if var.get()],
         }
 
     def _autosave(self, *_) -> None:

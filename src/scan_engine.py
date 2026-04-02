@@ -100,6 +100,47 @@ SENSITIVE_CATEGORY_KEYWORDS = {
     ],
 }
 
+# ---------------------------------------------------------------------------
+# Detection type registry — canonical list used by both scan engine and UI
+# ---------------------------------------------------------------------------
+
+# Maps detection type ID → (display_label, group)
+ALL_DETECTION_TYPES = [
+    # Gruppe: Identificerende oplysninger
+    ("cpr",              "CPR-numre",                         "Identificerende oplysninger"),
+    ("email",            "E-mailadresser",                    "Identificerende oplysninger"),
+    ("phone",            "Telefonnumre",                      "Identificerende oplysninger"),
+    # Gruppe: Finansielle oplysninger
+    ("iban",             "IBAN / bankkonto",                  "Finansielle oplysninger"),
+    ("credit_card",      "Kreditkortnumre",                   "Finansielle oplysninger"),
+    # Gruppe: Særlige kategorier (GDPR art. 9)
+    ("health",           "Helbredsoplysninger",               "Særlige kategorier (GDPR art. 9)"),
+    ("race_ethnicity",   "Race / etnisk oprindelse",          "Særlige kategorier (GDPR art. 9)"),
+    ("political",        "Politisk overbevisning",            "Særlige kategorier (GDPR art. 9)"),
+    ("religion",         "Religiøs overbevisning",            "Særlige kategorier (GDPR art. 9)"),
+    ("trade_union",      "Fagforeningsmedlemskab",            "Særlige kategorier (GDPR art. 9)"),
+    ("genetics",         "Genetiske oplysninger",             "Særlige kategorier (GDPR art. 9)"),
+    ("biometric",        "Biometriske oplysninger",           "Særlige kategorier (GDPR art. 9)"),
+    ("sexual_orientation","Seksuel orientering",              "Særlige kategorier (GDPR art. 9)"),
+    ("criminal",         "Strafbare forhold",                 "Særlige kategorier (GDPR art. 9)"),
+    # Gruppe: Strukturelle indikatorer
+    ("spreadsheet_headers", "Regneark-kolonneoverskrifter",   "Strukturelle indikatorer"),
+    ("filename_keywords",   "Filnavns-nøgleord",              "Strukturelle indikatorer"),
+]
+
+# Maps SENSITIVE_CATEGORY_KEYWORDS key → detection type ID
+SENSITIVE_CATEGORY_ID_MAP = {
+    "Helbredsoplysninger":          "health",
+    "Racemæssig/etnisk oprindelse": "race_ethnicity",
+    "Politisk overbevisning":       "political",
+    "Religiøs overbevisning":       "religion",
+    "Fagforeningsmedlemskab":       "trade_union",
+    "Genetiske oplysninger":        "genetics",
+    "Biometriske oplysninger":      "biometric",
+    "Seksuel orientering":          "sexual_orientation",
+    "Strafbare forhold":            "criminal",
+}
+
 EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.IGNORECASE)
 PHONE_INTERNATIONAL_PATTERN = re.compile(r"(?<!\d)(?:\+45|0045)[ -]?(?:\d{2}[ -]?){3}\d{2}(?!\d)")
 PHONE_PATTERN = re.compile(r"(?<!\d)(?:\d{2}[ -]?){3}\d{2}(?!\d)")
@@ -201,10 +242,15 @@ class ScanEngine:
             return m.group(0), self._line_number_of(text, m.start())
         return None
 
-    def _matches_sensitive_keywords(self, text: str) -> Optional[tuple]:
-        """Return (category_name, keyword, line_number) or None for sensitive category keywords."""
+    def _matches_sensitive_keywords(self, text: str, enabled_ids: set) -> Optional[tuple]:
+        """Return (category_name, keyword, line_number) or None.
+
+        Only searches categories whose detection type ID is in enabled_ids.
+        """
         text_lower = text.lower()
         for category, keywords in SENSITIVE_CATEGORY_KEYWORDS.items():
+            if SENSITIVE_CATEGORY_ID_MAP.get(category) not in enabled_ids:
+                continue
             for kw in keywords:
                 idx = text_lower.find(kw)
                 if idx != -1:
@@ -352,9 +398,14 @@ class ScanEngine:
         if file_type not in config.get("file_types", []):
             return findings
 
-        filename_reason = self._filename_match(path)
-        if filename_reason:
-            findings.append(Finding(str(path), filename_reason, age_days=age_days))
+        # Resolve enabled detection types — default to all if not configured
+        all_ids = {dt[0] for dt in ALL_DETECTION_TYPES}
+        enabled: set = set(config.get("detection_types", list(all_ids)))
+
+        if "filename_keywords" in enabled:
+            filename_reason = self._filename_match(path)
+            if filename_reason:
+                findings.append(Finding(str(path), filename_reason, age_days=age_days))
 
         try:
             if file_type in [".txt", ".log"]:
@@ -372,45 +423,50 @@ class ScanEngine:
             else:
                 text = ""
 
-            if file_type == ".csv":
+            if "spreadsheet_headers" in enabled and file_type == ".csv":
                 headers = self._extract_headers_from_csv(path)
                 if headers:
                     header_reason = self._header_match(headers)
                     if header_reason:
                         findings.append(Finding(str(path), header_reason, age_days=age_days))
-            if file_type in [".xlsx", ".xls"]:
+            if "spreadsheet_headers" in enabled and file_type in [".xlsx", ".xls"]:
                 headers = self._extract_headers_from_xlsx(path)
                 if headers:
                     header_reason = self._header_match(headers)
                     if header_reason:
                         findings.append(Finding(str(path), header_reason, age_days=age_days))
 
-            cpr = self._matches_cpr(text)
-            if cpr:
-                snippet, lnum = cpr
-                findings.append(Finding(str(path), "CPR match", snippet, age_days=age_days, line_number=lnum))
+            if "cpr" in enabled:
+                cpr = self._matches_cpr(text)
+                if cpr:
+                    snippet, lnum = cpr
+                    findings.append(Finding(str(path), "CPR match", snippet, age_days=age_days, line_number=lnum))
 
-            email = self._matches_email(text)
-            if email:
-                snippet, lnum = email
-                findings.append(Finding(str(path), "Email match", snippet, age_days=age_days, line_number=lnum))
+            if "email" in enabled:
+                email = self._matches_email(text)
+                if email:
+                    snippet, lnum = email
+                    findings.append(Finding(str(path), "Email match", snippet, age_days=age_days, line_number=lnum))
 
-            phone = self._matches_phone(text)
-            if phone:
-                snippet, lnum = phone
-                findings.append(Finding(str(path), "Phone match", snippet, age_days=age_days, line_number=lnum))
+            if "phone" in enabled:
+                phone = self._matches_phone(text)
+                if phone:
+                    snippet, lnum = phone
+                    findings.append(Finding(str(path), "Phone match", snippet, age_days=age_days, line_number=lnum))
 
-            iban = self._matches_iban(text)
-            if iban:
-                snippet, lnum = iban
-                findings.append(Finding(str(path), "IBAN match", snippet, age_days=age_days, line_number=lnum))
+            if "iban" in enabled:
+                iban = self._matches_iban(text)
+                if iban:
+                    snippet, lnum = iban
+                    findings.append(Finding(str(path), "IBAN match", snippet, age_days=age_days, line_number=lnum))
 
-            cc = self._matches_credit_card(text)
-            if cc:
-                snippet, lnum = cc
-                findings.append(Finding(str(path), "Kreditkortnummer match", snippet, age_days=age_days, line_number=lnum))
+            if "credit_card" in enabled:
+                cc = self._matches_credit_card(text)
+                if cc:
+                    snippet, lnum = cc
+                    findings.append(Finding(str(path), "Kreditkortnummer match", snippet, age_days=age_days, line_number=lnum))
 
-            sensitive = self._matches_sensitive_keywords(text)
+            sensitive = self._matches_sensitive_keywords(text, enabled)
             if sensitive:
                 category, kw, lnum = sensitive
                 findings.append(Finding(str(path), f"Særlig kategori: {category}", kw, age_days=age_days, line_number=lnum))
