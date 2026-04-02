@@ -6,7 +6,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 from src.config_store import ConfigStore
-from src.events import OpenConfigEvent, ScanNowEvent, ShutdownEvent, ScanCompleteEvent, FindingEvent
+from src.events import OpenConfigEvent, ScanNowEvent, ShutdownEvent, ScanCompleteEvent, FindingEvent, ScanProgressEvent
 from src.config_dialog import ConfigDialog
 from src.scan_engine import ScanEngine
 from src import styles
@@ -75,9 +75,16 @@ class UIThread:
             threading.Thread(target=self._run_scan, daemon=True, name="ScanWorker").start()
         elif isinstance(event, FindingEvent):
             self._enqueue_finding(event)
+        elif isinstance(event, ScanProgressEvent):
+            self._update_scan_progress(event)
+        elif isinstance(event, ScanCompleteEvent):
+            self._on_scan_complete(event)
 
     def _run_scan(self) -> None:
-        result = self.scan_engine.scan()
+        def _progress(current: int, total: int, current_file: str) -> None:
+            self.event_queue.put(ScanProgressEvent(current=current, total=total, current_file=current_file))
+
+        result = self.scan_engine.scan(progress_callback=_progress)
         for finding in result.findings:
             logging.info("Finding: %s: %s %s", finding.path, finding.reason, finding.snippet or "")
             self.event_queue.put(
@@ -90,6 +97,21 @@ class UIThread:
                 )
             )
         self.event_queue.put(ScanCompleteEvent(files_scanned=result.files_scanned, findings_count=len(result.findings)))
+
+    def _update_scan_progress(self, event: ScanProgressEvent) -> None:
+        if self._config_dialog is not None:
+            try:
+                self._config_dialog.set_scan_progress(event.current, event.total, event.current_file)
+            except tk.TclError:
+                pass
+
+    def _on_scan_complete(self, event: ScanCompleteEvent) -> None:
+        logging.info("Scan complete: %d files scanned, %d findings", event.files_scanned, event.findings_count)
+        if self._config_dialog is not None:
+            try:
+                self._config_dialog.set_scan_idle()
+            except tk.TclError:
+                pass
 
     def _enqueue_finding(self, finding_event: FindingEvent) -> None:
         self._finding_queue.append(finding_event)

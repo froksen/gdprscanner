@@ -77,11 +77,15 @@ def apply_theme(root: tk.Tk) -> None:
     # ----- Notebook / Tabs -----
     style.configure("TNotebook", background=BG2, borderwidth=0,
                     tabmargins=[0, 0, 0, 0])
+    # Inactive tabs: small font, muted
     style.configure("TNotebook.Tab", background=BG2, foreground=TEXT2,
-                    padding=[20, 9], font=("Segoe UI", 9), borderwidth=0)
+                    padding=[16, 6], font=("Segoe UI", 8), borderwidth=0)
+    # Selected tab: larger font, accent colour, white bg
     style.map("TNotebook.Tab",
               background=[("selected", BG), ("active", BG3)],
-              foreground=[("selected", BLUE), ("active", TEXT)])
+              foreground=[("selected", BLUE), ("active", TEXT)],
+              font=[("selected", ("Segoe UI", 10, "bold"))],
+              padding=[("selected", [20, 10])])
 
     # ----- Buttons -----
     style.configure("TButton", background=BG, foreground=TEXT,

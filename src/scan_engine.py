@@ -420,22 +420,31 @@ class ScanEngine:
 
         return findings
 
-    def scan(self) -> List[Finding]:
+    def scan(self, progress_callback=None) -> "ScanResult":
+        """Scan all configured folders.
+
+        progress_callback(current: int, total: int, current_file: str) is
+        called before each file is processed so callers can show progress.
+        """
         config = self.config_store.get_config()
         roots = config.get("scan_folders", []) or []
         file_types = [ext.lower() for ext in config.get("file_types", [])]
         max_age_days = config.get("file_age_days", 30)
         ignore_paths = config.get("ignore_paths", [])
 
-        logging.info("Scan config: folders=%s, file_types=%s, max_age_days=%d, ignore_paths=%s", roots, file_types, max_age_days, ignore_paths)
-
-        findings: List[Finding] = []
-        scanned_files = 0
-        candidate_files = 0
-        age_filtered_out = 0
+        logging.info(
+            "Scan config: folders=%s, file_types=%s, max_age_days=%d, ignore_paths=%s",
+            roots, file_types, max_age_days, ignore_paths,
+        )
 
         if not roots:
             logging.warning("No scan folders configured in config[scan_folders]")
+
+        # ------------------------------------------------------------------
+        # Phase 1: collect all files that pass filters (so we know the total)
+        # ------------------------------------------------------------------
+        eligible: List[tuple] = []   # [(file_path, age_days), ...]
+        age_filtered_out = 0
 
         for root in roots:
             root_path = pathlib.Path(root)
@@ -449,32 +458,33 @@ class ScanEngine:
                     file_path = pathlib.Path(dirpath) / filename
                     if file_path.suffix.lower() not in file_types:
                         continue
-
-                    candidate_files += 1
-
                     if self._is_ignored(file_path, ignore_paths):
                         logging.debug("File ignored: %s", file_path)
                         continue
-
                     try:
                         age_days = int((time.time() - file_path.stat().st_mtime) / 86400)
                     except OSError:
                         logging.warning("Skipping file '%s' due to stat error", file_path)
                         continue
-
                     if max_age_days > 0 and age_days < max_age_days:
                         age_filtered_out += 1
                         logging.debug("File too new: %s (age %d < %d)", file_path, age_days, max_age_days)
                         continue
+                    eligible.append((file_path, age_days))
 
-                    scanned_files += 1
-                    findings.extend(self.scan_file(file_path, config, age_days=age_days))
+        total = len(eligible)
+
+        # ------------------------------------------------------------------
+        # Phase 2: scan each file, emitting progress before each one
+        # ------------------------------------------------------------------
+        findings: List[Finding] = []
+        for idx, (file_path, age_days) in enumerate(eligible):
+            if progress_callback is not None:
+                progress_callback(idx + 1, total, str(file_path))
+            findings.extend(self.scan_file(file_path, config, age_days=age_days))
 
         logging.info(
-            "Scan complete: %d candidates, %d age-filtered out, %d scanned, %d findings",
-            candidate_files,
-            age_filtered_out,
-            scanned_files,
-            len(findings),
+            "Scan complete: %d age-filtered out, %d scanned, %d findings",
+            age_filtered_out, total, len(findings),
         )
-        return ScanResult(files_scanned=scanned_files, findings=findings)
+        return ScanResult(files_scanned=total, findings=findings)

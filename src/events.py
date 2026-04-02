@@ -18,6 +18,14 @@ class ShutdownEvent:
 
 
 @dataclass
+class ScanProgressEvent:
+    type: Literal["scan_progress"] = "scan_progress"
+    current: int = 0
+    total: int = 0
+    current_file: str = ""
+
+
+@dataclass
 class ScanCompleteEvent:
     type: Literal["scan_complete"] = "scan_complete"
     files_scanned: int = 0

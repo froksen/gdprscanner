@@ -139,6 +139,25 @@ class ConfigDialog:
             width=22,
         ).pack(anchor="w", padx=20, pady=(0, 16))
 
+        ttk.Separator(frame, orient="horizontal").pack(fill="x", padx=20, pady=(0, 14))
+
+        # Section: Scan progress
+        ttk.Label(frame, text="Scanning",
+                  style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(0, 6))
+
+        self._progress_var = tk.IntVar(value=0)
+        self._progress_bar = ttk.Progressbar(
+            frame,
+            orient="horizontal",
+            mode="determinate",
+            variable=self._progress_var,
+            maximum=100,
+        )
+        self._progress_bar.pack(fill="x", padx=20, pady=(0, 4))
+
+        self._progress_label = ttk.Label(frame, text="Klar", style="Caption.TLabel")
+        self._progress_label.pack(anchor="w", padx=20, pady=(0, 14))
+
         ttk.Separator(frame, orient="horizontal").pack(fill="x", padx=20, pady=(0, 12))
 
         # Section: Activity log
@@ -343,6 +362,20 @@ class ConfigDialog:
         """Remove log handler when dialog is destroyed."""
         if event.widget == self.dialog:
             logging.getLogger().removeHandler(self._log_handler)
+
+    def set_scan_progress(self, current: int, total: int, current_file: str) -> None:
+        """Update the progress bar and current-file label (called from UIThread)."""
+        pct = int(current / total * 100) if total > 0 else 0
+        self._progress_var.set(pct)
+        filename = current_file.split("\\")[-1].split("/")[-1]
+        self._progress_label.configure(
+            text=f"Fil {current} af {total}: {filename}"
+        )
+
+    def set_scan_idle(self) -> None:
+        """Reset progress display when scan completes."""
+        self._progress_var.set(0)
+        self._progress_label.configure(text="Klar")
 
     def _trigger_scan(self) -> None:
         """Post ScanNowEvent to trigger an immediate scan."""
