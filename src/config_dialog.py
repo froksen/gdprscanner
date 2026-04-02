@@ -1,9 +1,36 @@
+import queue
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as filedialog
 import logging
 
 from src.config_store import ConfigStore
+from src.events import ScanNowEvent
+
+
+class _TextLogHandler(logging.Handler):
+    """Append log records to a tk.Text widget (thread-safe via after())."""
+
+    def __init__(self, text_widget: tk.Text) -> None:
+        super().__init__()
+        self._widget = text_widget
+        self.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s", "%H:%M:%S"))
+
+    def emit(self, record: logging.LogRecord) -> None:
+        msg = self.format(record) + "\n"
+        try:
+            self._widget.after(0, self._append, msg)
+        except Exception:
+            pass
+
+    def _append(self, msg: str) -> None:
+        try:
+            self._widget.config(state="normal")
+            self._widget.insert(tk.END, msg)
+            self._widget.see(tk.END)
+            self._widget.config(state="disabled")
+        except tk.TclError:
+            pass
 
 
 # Frequency mapping per D-10, D-11
@@ -28,9 +55,10 @@ class ConfigDialog:
     X button discards changes and destroys dialog.
     """
 
-    def __init__(self, root: tk.Tk, config_store: ConfigStore) -> None:
+    def __init__(self, root: tk.Tk, config_store: ConfigStore, event_queue: queue.Queue | None = None) -> None:
         self.root = root
         self.config_store = config_store
+        self._event_queue = event_queue
 
         # Create Toplevel dialog (D-06: not a new tk.Tk root)
         self.dialog = tk.Toplevel(root)
@@ -58,7 +86,7 @@ class ConfigDialog:
         self._build_regler_tab()
         self._build_scanning_tab()
 
-        # Footer: "Gem og luk" button right-aligned
+        # Footer: "Scan nu" left, "Gem og luk" right
         footer_frame = ttk.Frame(self.dialog)
         footer_frame.pack(fill="x", padx=16, pady=12)
         ttk.Button(
@@ -66,6 +94,11 @@ class ConfigDialog:
             text="Gem og luk",
             command=self._save_and_close,
         ).pack(side="right")
+        ttk.Button(
+            footer_frame,
+            text="Scan nu",
+            command=self._trigger_scan,
+        ).pack(side="left")
 
     # ------------------------------------------------------------------
     # Tab builders
@@ -206,6 +239,38 @@ class ConfigDialog:
             width=20,
         ).pack(anchor="w", padx=16, pady=(0, 16))
 
+        # --- Activity log section ---
+        ttk.Label(
+            frame,
+            text="Aktivitetslog",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w", padx=16, pady=(0, 4))
+
+        log_frame = ttk.Frame(frame)
+        log_frame.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+
+        log_scroll = ttk.Scrollbar(log_frame, orient="vertical")
+        log_scroll.pack(side="right", fill="y")
+
+        self._log_text = tk.Text(
+            log_frame,
+            height=8,
+            state="disabled",
+            wrap="word",
+            yscrollcommand=log_scroll.set,
+            font=("Consolas", 8),
+        )
+        self._log_text.pack(side="left", fill="both", expand=True)
+        log_scroll.config(command=self._log_text.yview)
+
+        # Attach log handler so log messages appear in this widget
+        self._log_handler = _TextLogHandler(self._log_text)
+        self._log_handler.setLevel(logging.INFO)
+        logging.getLogger().addHandler(self._log_handler)
+
+        # Remove handler when dialog is destroyed
+        self.dialog.bind("<Destroy>", self._on_destroy)
+
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
@@ -256,3 +321,16 @@ class ConfigDialog:
     def _on_close(self) -> None:
         """X button handler — discard changes, destroy dialog."""
         self.dialog.destroy()
+
+    def _on_destroy(self, event) -> None:
+        """Remove log handler when dialog is destroyed."""
+        if event.widget == self.dialog:
+            logging.getLogger().removeHandler(self._log_handler)
+
+    def _trigger_scan(self) -> None:
+        """Post ScanNowEvent to trigger an immediate scan."""
+        if self._event_queue is not None:
+            self._event_queue.put(ScanNowEvent())
+            logging.info("Manuel scanning startet")
+        else:
+            logging.warning("Kan ikke starte scan — event queue ikke tilgængelig")

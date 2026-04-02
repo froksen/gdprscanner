@@ -90,4 +90,4 @@ class UIThread:
                 # Dialog was destroyed; clear reference and create a new one
                 self._config_dialog = None
 
-        self._config_dialog = ConfigDialog(self.root, self.config_store)
+        self._config_dialog = ConfigDialog(self.root, self.config_store, self.event_queue)
