@@ -29,7 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The configuration dialog opens from the tray menu and lets the user add/remove folders, set file age threshold, set scan frequency, and choose file types — then saves those settings
   4. Settings written to `%APPDATA%\GDPRScanner\config.json` survive a full application restart
   5. The scheduled scanner fires at the configured interval in the background without making the UI unresponsive
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — Events, ConfigStore, tray icon image, requirements.txt
+- [ ] 01-02-PLAN.md — TrayApp, UIThread, ScanScheduler, main.py entry point
+- [ ] 01-03-PLAN.md — 3-tab ConfigDialog and UIThread wiring
 **UI hint**: yes
 
 ### Phase 2: Scan Pipeline
@@ -70,11 +74,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Scaffolding | 0/? | Not started | - |
+| 1. Core Scaffolding | 0/3 | Planned | - |
 | 2. Scan Pipeline | 0/? | Not started | - |
 | 3. Alert Dialog & Ignore List | 0/? | Not started | - |
 | 4. Packaging | 0/? | Not started | - |
