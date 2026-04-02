@@ -6,6 +6,7 @@ import tkinter.ttk as ttk
 
 from src.config_store import ConfigStore
 from src.events import OpenConfigEvent, ScanNowEvent, ShutdownEvent
+from src.config_dialog import ConfigDialog
 
 
 class UIThread:
@@ -23,7 +24,7 @@ class UIThread:
         self.event_queue = event_queue
         self.config_store = config_store
         self.root = None
-        self.config_dialog = None
+        self._config_dialog = None
 
     def start(self) -> threading.Thread:
         """Create and start the daemon UI thread.  Returns the Thread object."""
@@ -74,5 +75,19 @@ class UIThread:
             logging.info("ScanNowEvent received by UI thread")
 
     def _open_config_dialog(self) -> None:
-        """STUB — Plan 03 replaces this with the full three-tab config dialog."""
-        logging.info("Config dialog requested")
+        """Open config dialog as Toplevel child of hidden root.
+
+        If dialog already exists and is visible, bring it to front (no duplicates).
+        Per D-06: dialog is tk.Toplevel, not new tk.Tk.
+        Called from _handle_event which runs on the tkinter thread via root.after().
+        """
+        if self._config_dialog is not None:
+            try:
+                self._config_dialog.dialog.lift()
+                self._config_dialog.dialog.focus_force()
+                return
+            except tk.TclError:
+                # Dialog was destroyed; clear reference and create a new one
+                self._config_dialog = None
+
+        self._config_dialog = ConfigDialog(self.root, self.config_store)
