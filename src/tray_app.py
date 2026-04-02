@@ -58,4 +58,8 @@ class TrayApp:
         """Start the pystray event loop.  This call blocks until the icon
         is stopped (i.e. until _on_quit calls self.icon.stop()).
         """
-        self.icon.run()
+        self.icon.run(setup=self._on_ready)
+
+    def _on_ready(self, icon: Icon) -> None:
+        """Called by pystray once the tray icon is fully initialised."""
+        icon.notify("GDPR Scanner kører i baggrunden", "GDPR Scanner")
