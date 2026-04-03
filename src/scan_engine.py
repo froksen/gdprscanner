@@ -108,6 +108,8 @@ SENSITIVE_CATEGORY_KEYWORDS = {
 ALL_DETECTION_TYPES = [
     # Gruppe: Identificerende oplysninger
     ("cpr",              "CPR-numre",                         "Identificerende oplysninger"),
+    ("name",             "Personnavne",                       "Identificerende oplysninger"),
+    ("address",          "Postadresser",                      "Identificerende oplysninger"),
     ("email",            "E-mailadresser",                    "Identificerende oplysninger"),
     ("phone",            "Telefonnumre",                      "Identificerende oplysninger"),
     # Gruppe: Finansielle oplysninger
@@ -142,6 +144,46 @@ SENSITIVE_CATEGORY_ID_MAP = {
 }
 
 EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.IGNORECASE)
+
+# Dansk postadresse: "Vejnavn 12A, 2200 København N"
+# Vejnavn: 1-4 ord med store bogstaver (inkl. æøå), husnr: tal + evt. bogstav,
+# postnr: 4 cifre (1000-9999), by: 1-3 ord
+DANISH_ADDRESS_PATTERN = re.compile(
+    r"\b[A-ZÆØÅ][a-zæøåA-ZÆØÅ]+(?:[ -][A-ZÆØÅ]?[a-zæøå]+){0,3}"  # vejnavn
+    r"[ ]\d{1,4}[A-Za-z]?"                                            # husnummer
+    r"(?:,[ ]|[ ])"                                                    # separator
+    r"[1-9]\d{3}"                                                      # postnummer
+    r"[ ][A-ZÆØÅ][a-zæøå]+(?:[ ][A-ZÆØÅ]?[a-zæøå]+){0,2}",          # bynavn
+    re.UNICODE,
+)
+
+# Feltlabel-kontekst: "Navn: Peter Hansen", "Kunde: Lars Nielsen" osv.
+NAME_LABEL_PATTERN = re.compile(
+    r"(?:navn|kundenavn|patientnavn|kontaktperson|modtager|afsender|"
+    r"medarbejder|elev|borger|lejer|køber|sælger|forsikringstager|"
+    r"debitor|kreditor|kontakt|person)"
+    r"[:\s]+([A-ZÆØÅ][a-zæøå]+(?:[ -][A-ZÆØÅ][a-zæøå]+)+)",
+    re.IGNORECASE | re.UNICODE,
+)
+
+# Hyppige danske fornavne — efterfulgt af mindst ét efternavn (stort bogstav)
+_DANISH_FIRST_NAMES = {
+    "anders","anne","brian","camilla","caroline","charlotte","christian",
+    "christina","christopher","daniel","david","emma","erik","frederik",
+    "hanne","henrik","jacob","jakob","jens","jonas","julie","karen",
+    "kasper","katrine","kristian","kristina","lars","lasse","laura",
+    "lene","line","lisa","louise","lucas","magnus","maja","malene",
+    "maria","marie","martin","mathias","mette","michael","mikkel",
+    "morten","nicholas","nicolai","nicole","nina","oliver","patrick",
+    "pernille","peter","rasmus","rikke","simon","sofie","søren",
+    "thomas","tobias","tom","torben","trine","victor","victoria",
+}
+NAME_FIRSTNAME_PATTERN = re.compile(
+    r"\b(" + "|".join(sorted(_DANISH_FIRST_NAMES, key=len, reverse=True)) + r")"
+    r"[ ][A-ZÆØÅ][a-zæøå]+"          # efternavn
+    r"(?:[ -][A-ZÆØÅ][a-zæøå]+)?",   # evt. dobbelt efternavn
+    re.IGNORECASE | re.UNICODE,
+)
 PHONE_INTERNATIONAL_PATTERN = re.compile(r"(?<!\d)(?:\+45|0045)[ -]?(?:\d{2}[ -]?){3}\d{2}(?!\d)")
 # Kræver mellemrum som separator (XX XX XX XX) — bindestreg afvises bevidst
 # for at undgå falske positive på årsperioder som "2012-2021".
@@ -226,6 +268,27 @@ class ScanEngine:
         if m:
             return m.group(0), self._line_number_of(text, m.start())
         m = PHONE_PATTERN.search(text)
+        if m:
+            return m.group(0), self._line_number_of(text, m.start())
+        return None
+
+    def _matches_address(self, text: str) -> Optional[tuple]:
+        """Return (snippet, line_number) for a Danish postal address, or None."""
+        m = DANISH_ADDRESS_PATTERN.search(text)
+        if m:
+            return m.group(0), self._line_number_of(text, m.start())
+        return None
+
+    def _matches_name(self, text: str) -> Optional[tuple]:
+        """Return (snippet, line_number) for a personal name, or None.
+
+        Checks field-label context first (high confidence), then falls back
+        to known first-name + surname pattern (lower confidence).
+        """
+        m = NAME_LABEL_PATTERN.search(text)
+        if m:
+            return m.group(0), self._line_number_of(text, m.start())
+        m = NAME_FIRSTNAME_PATTERN.search(text)
         if m:
             return m.group(0), self._line_number_of(text, m.start())
         return None
@@ -437,6 +500,18 @@ class ScanEngine:
                     header_reason = self._header_match(headers)
                     if header_reason:
                         findings.append(Finding(str(path), header_reason, age_days=age_days))
+
+            if "name" in enabled:
+                name = self._matches_name(text)
+                if name:
+                    snippet, lnum = name
+                    findings.append(Finding(str(path), "Navn match", snippet, age_days=age_days, line_number=lnum))
+
+            if "address" in enabled:
+                address = self._matches_address(text)
+                if address:
+                    snippet, lnum = address
+                    findings.append(Finding(str(path), "Adresse match", snippet, age_days=age_days, line_number=lnum))
 
             if "cpr" in enabled:
                 cpr = self._matches_cpr(text)

@@ -14,7 +14,7 @@ class ConfigStore:
         "file_types": [".docx", ".xlsx", ".xls", ".csv", ".pdf", ".txt", ".log"],
         "ignore_paths": [],
         "detection_types": [
-            "cpr", "email", "phone",
+            "cpr", "name", "address", "email", "phone",
             "iban", "credit_card",
             "health", "race_ethnicity", "political", "religion",
             "trade_union", "genetics", "biometric", "sexual_orientation", "criminal",

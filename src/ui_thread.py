@@ -243,6 +243,8 @@ class UIThread:
 
     def _get_violation_description(self, reason: str) -> str:
         descriptions = {
+            "Navn match": "Filen indeholder et personnavn, som er personoplysninger under GDPR.",
+            "Adresse match": "Filen indeholder en dansk postadresse, som er personoplysninger under GDPR.",
             "CPR match": "Filen indeholder et dansk CPR-nummer — fortrolige personoplysninger under dansk databeskyttelseslov § 11.",
             "Email match": "Filen indeholder en e-mailadresse, som er personlige oplysninger under GDPR.",
             "Phone match": "Filen indeholder et dansk telefonnummer, som er personlige oplysninger.",
