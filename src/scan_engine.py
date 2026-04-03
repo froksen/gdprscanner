@@ -504,14 +504,29 @@ class ScanEngine:
         eligible: List[tuple] = []   # [(file_path, age_days), ...]
         age_filtered_out = 0
 
-        for root in roots:
-            root_path = pathlib.Path(root)
-            if not root_path.exists() or not root_path.is_dir():
-                logging.warning("Skipping missing or invalid folder: %s", root)
-                continue
-            logging.info("Walking scan folder: %s", root_path)
+        for folder_entry in roots:
+            if isinstance(folder_entry, dict):
+                root_path = pathlib.Path(folder_entry["path"])
+                recursive = folder_entry.get("recursive", True)
+            else:
+                root_path = pathlib.Path(folder_entry)
+                recursive = True
 
-            for dirpath, _, filenames in os.walk(root_path):
+            if not root_path.exists() or not root_path.is_dir():
+                logging.warning("Skipping missing or invalid folder: %s", root_path)
+                continue
+            logging.info("Walking scan folder: %s (recursive=%s)", root_path, recursive)
+
+            if recursive:
+                walker = os.walk(root_path)
+            else:
+                try:
+                    walker = [(str(root_path), [], os.listdir(root_path))]
+                except PermissionError:
+                    logging.warning("Permission denied: %s", root_path)
+                    continue
+
+            for dirpath, _, filenames in walker:
                 for filename in filenames:
                     file_path = pathlib.Path(dirpath) / filename
                     if file_path.suffix.lower() not in file_types:

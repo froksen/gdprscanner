@@ -8,7 +8,7 @@ class ConfigStore:
     APP_DIR: pathlib.Path = pathlib.Path(os.environ["APPDATA"]) / "GDPRScanner"
     CONFIG_FILE: pathlib.Path = APP_DIR / "config.json"
     DEFAULT_CONFIG: dict = {
-        "scan_folders": [],
+        "scan_folders": [],   # list of {"path": str, "recursive": bool}
         "file_age_days": 30,
         "scan_interval_minutes": 1440,
         "file_types": [".docx", ".xlsx", ".xls", ".csv", ".pdf", ".txt", ".log"],
@@ -32,7 +32,13 @@ class ConfigStore:
     def load(self) -> dict:
         try:
             with open(self.CONFIG_FILE, "r", encoding="utf-8") as fh:
-                return json.load(fh)
+                config = json.load(fh)
+            # Migrate legacy string-only scan_folders to {path, recursive} dicts
+            config["scan_folders"] = [
+                f if isinstance(f, dict) else {"path": f, "recursive": True}
+                for f in config.get("scan_folders", [])
+            ]
+            return config
         except FileNotFoundError:
             return copy.deepcopy(self.DEFAULT_CONFIG)
         except json.JSONDecodeError:

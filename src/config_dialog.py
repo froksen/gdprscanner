@@ -199,64 +199,57 @@ class ConfigDialog:
         self.dialog.bind("<Destroy>", self._on_destroy)
 
     def _build_mapper_tab(self) -> None:
-        """Tab 1: Mapper — folder list management."""
+        """Tab 1: Mapper — folder list with per-folder recursive toggle."""
         frame = ttk.Frame(self._notebook)
         self._notebook.add(frame, text="  Mapper  ")
 
         ttk.Label(frame, text="Mapper til scanning",
                   style="SectionHeading.TLabel").pack(anchor="w", padx=20, pady=(18, 6))
 
-        # Listbox with vertical scrollbar
-        list_frame = tk.Frame(frame, bg=styles.BG, bd=1,
-                              relief="solid", highlightthickness=0)
-        list_frame.configure(background=styles.BORDER)
-        list_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+        # Treeview with two columns: path and recursive flag
+        tree_frame = tk.Frame(frame, bg=styles.BORDER, bd=1, relief="flat")
+        tree_frame.pack(fill="both", expand=True, padx=20, pady=(0, 8))
 
-        scrollbar = ttk.Scrollbar(list_frame, orient="vertical")
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical")
         scrollbar.pack(side="right", fill="y")
 
-        self._folder_listbox = tk.Listbox(
-            list_frame,
-            selectmode=tk.SINGLE,
-            height=8,
+        self._folder_tree = ttk.Treeview(
+            tree_frame,
+            columns=("path", "recursive"),
+            show="headings",
+            selectmode="browse",
             yscrollcommand=scrollbar.set,
-            bg=styles.BG,
-            fg=styles.TEXT,
-            selectbackground=styles.BLUE,
-            selectforeground="white",
-            activestyle="none",
-            relief="flat",
-            borderwidth=0,
-            highlightthickness=0,
-            font=("Segoe UI", 9),
+            height=8,
         )
-        self._folder_listbox.pack(side="left", fill="both", expand=True,
-                                  padx=1, pady=1)
-        scrollbar.config(command=self._folder_listbox.yview)
+        self._folder_tree.heading("path", text="Mappe")
+        self._folder_tree.heading("recursive", text="Undermapper")
+        self._folder_tree.column("path", stretch=True, minwidth=200)
+        self._folder_tree.column("recursive", width=110, anchor="center", stretch=False)
+        self._folder_tree.pack(side="left", fill="both", expand=True, padx=1, pady=1)
+        scrollbar.config(command=self._folder_tree.yview)
 
         # Populate from config
-        for folder in self._config.get("scan_folders", []):
-            self._folder_listbox.insert(tk.END, folder)
+        for entry in self._config.get("scan_folders", []):
+            path = entry["path"] if isinstance(entry, dict) else entry
+            recursive = entry.get("recursive", True) if isinstance(entry, dict) else True
+            self._folder_tree.insert("", tk.END, values=(path, "✓ Ja" if recursive else "✗ Nej"))
+
+        self._folder_tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         # Buttons row
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(anchor="w", padx=20, pady=(0, 16))
 
-        ttk.Button(
-            btn_frame,
-            text="Tilf\u00f8j mappe",
-            command=self._add_folder,
-        ).pack(side="left", padx=(0, 8))
+        ttk.Button(btn_frame, text="Tilføj mappe",
+                   command=self._add_folder).pack(side="left", padx=(0, 8))
 
-        self._remove_btn = ttk.Button(
-            btn_frame,
-            text="Fjern valgt",
-            command=self._remove_folder,
-            state="disabled",
-        )
-        self._remove_btn.pack(side="left")
+        self._remove_btn = ttk.Button(btn_frame, text="Fjern valgt",
+                                      command=self._remove_folder, state="disabled")
+        self._remove_btn.pack(side="left", padx=(0, 8))
 
-        self._folder_listbox.bind("<<ListboxSelect>>", self._on_listbox_select)
+        self._recursive_btn = ttk.Button(btn_frame, text="Skift undermapper",
+                                         command=self._toggle_recursive, state="disabled")
+        self._recursive_btn.pack(side="left")
 
     def _build_regler_tab(self) -> None:
         """Tab 2: Regler — file age threshold + file type checkboxes."""
@@ -347,32 +340,51 @@ class ConfigDialog:
         folder = filedialog.askdirectory(parent=self.dialog)
         if not folder:
             return
-        existing = list(self._folder_listbox.get(0, tk.END))
+        existing = [self._folder_tree.item(iid, "values")[0]
+                    for iid in self._folder_tree.get_children()]
         if folder in existing:
             return
-        self._folder_listbox.insert(tk.END, folder)
+        self._folder_tree.insert("", tk.END, values=(folder, "✓ Ja"))
         self._autosave()
 
     def _remove_folder(self) -> None:
-        """Remove selected folder from listbox."""
-        selection = self._folder_listbox.curselection()
-        if not selection:
+        """Remove selected folder from treeview."""
+        selected = self._folder_tree.selection()
+        if not selected:
             return
-        self._folder_listbox.delete(selection[0])
+        self._folder_tree.delete(selected[0])
         self._remove_btn.config(state="disabled")
+        self._recursive_btn.config(state="disabled")
         self._autosave()
 
-    def _on_listbox_select(self, event) -> None:
-        """Enable/disable Fjern valgt based on current selection."""
-        if self._folder_listbox.curselection():
+    def _toggle_recursive(self) -> None:
+        """Toggle the recursive (undermapper) flag for the selected folder."""
+        selected = self._folder_tree.selection()
+        if not selected:
+            return
+        iid = selected[0]
+        path, current = self._folder_tree.item(iid, "values")
+        new_val = "✗ Nej" if current == "✓ Ja" else "✓ Ja"
+        self._folder_tree.item(iid, values=(path, new_val))
+        self._autosave()
+
+    def _on_tree_select(self, event) -> None:
+        """Enable/disable action buttons based on treeview selection."""
+        if self._folder_tree.selection():
             self._remove_btn.config(state="normal")
+            self._recursive_btn.config(state="normal")
         else:
             self._remove_btn.config(state="disabled")
+            self._recursive_btn.config(state="disabled")
 
     def _collect_config(self) -> dict:
         """Read all widget values and return config dict."""
+        folders = []
+        for iid in self._folder_tree.get_children():
+            path, rec_label = self._folder_tree.item(iid, "values")
+            folders.append({"path": path, "recursive": rec_label == "✓ Ja"})
         return {
-            "scan_folders": list(self._folder_listbox.get(0, tk.END)),
+            "scan_folders": folders,
             "file_age_days": self._age_var.get(),
             "scan_interval_minutes": FREQ_DISPLAY_TO_MINUTES[self._freq_var.get()],
             "file_types": [ext for ext, var in self._type_vars.items() if var.get()],
