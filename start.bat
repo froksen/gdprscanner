@@ -8,24 +8,24 @@ echo       GDPR Scanner
 echo  ================================================
 echo.
 
-:: ── Trin 1: Tjek Python ────────────────────────────
+rem --- Trin 1: Tjek Python ---
 echo  [1/3] Tjekker Python installation...
 python --version >nul 2>&1
 if errorlevel 1 (
     echo.
     echo  FEJL: Python blev ikke fundet.
-    echo  Installer Python 3.8+ fra https://python.org
+    echo  Installer Python 3.8+ fra python.org
     echo.
     pause
     exit /b 1
 )
-for /f "tokens=*" %%v in ('python --version 2^>^&1') do echo         %%v fundet
+for /f "tokens=*" %%v in ('python --version 2^>^&1') do echo        %%v fundet
 echo.
 
-:: ── Trin 2: Virtuelt miljø ─────────────────────────
+rem --- Trin 2: Virtuelt miljo ---
 echo  [2/3] Forbereder virtuelt miljoe (.venv)...
 if not exist ".venv\Scripts\python.exe" (
-    echo         Opretter nyt venv...
+    echo        Opretter nyt venv...
     python -m venv .venv
     if errorlevel 1 (
         echo.
@@ -34,23 +34,21 @@ if not exist ".venv\Scripts\python.exe" (
         pause
         exit /b 1
     )
-    echo         Venv oprettet.
+    echo        Venv oprettet.
 ) else (
-    echo         Venv findes allerede.
+    echo        Venv findes allerede.
 )
 
-:: Kopiér pythonw.exe til venv hvis den mangler (ikke altid med i venv)
+rem Kopier pythonw.exe til venv hvis den mangler
 if not exist ".venv\Scripts\pythonw.exe" (
     for /f "tokens=*" %%p in ('python -c "import sys,os; print(os.path.dirname(sys.executable))"') do (
-        if exist "%%p\pythonw.exe" (
-            copy "%%p\pythonw.exe" ".venv\Scripts\pythonw.exe" >nul
-        )
+        if exist "%%p\pythonw.exe" copy "%%p\pythonw.exe" ".venv\Scripts\pythonw.exe" >nul
     )
 )
 echo.
 
-:: ── Trin 3: Installér afhængigheder ───────────────
-echo  [3/3] Installerer afhaengigheder (requirements.txt)...
+rem --- Trin 3: Installer afhangigheder ---
+echo  [3/3] Installerer afhaengigheder...
 call .venv\Scripts\activate.bat
 pip install -r requirements.txt -q --disable-pip-version-check
 if errorlevel 1 (
@@ -60,10 +58,10 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-echo         Alle afhaengigheder er klar.
+echo        Alle afhaengigheder er klar.
 echo.
 
-:: ── Start programmet ───────────────────────────────
+rem --- Start programmet ---
 echo  ================================================
 echo       Starter GDPR Scanner i systembakken...
 echo  ================================================
