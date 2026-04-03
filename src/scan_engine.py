@@ -145,13 +145,13 @@ SENSITIVE_CATEGORY_ID_MAP = {
 
 EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", re.IGNORECASE)
 
-# Dansk postadresse: "Vejnavn 12A, 2200 København N"
-# Vejnavn: 1-4 ord med store bogstaver (inkl. æøå), husnr: tal + evt. bogstav,
-# postnr: 4 cifre (1000-9999), by: 1-3 ord
+# Dansk postadresse — matcher begge formater:
+#   Enkeltlinje:  "Damgade 9, 6400 Sønderborg"
+#   Flerlinje:    "Damgade 9\n6400 Sønderborg"
 DANISH_ADDRESS_PATTERN = re.compile(
     r"\b[A-ZÆØÅ][a-zæøåA-ZÆØÅ]+(?:[ -][A-ZÆØÅ]?[a-zæøå]+){0,3}"  # vejnavn
     r"[ ]\d{1,4}[A-Za-z]?"                                            # husnummer
-    r"(?:,[ ]|[ ])"                                                    # separator
+    r"(?:,[ ]|[ ]|\n)"                                                 # separator: komma, mellemrum ELLER linjeskift
     r"[1-9]\d{3}"                                                      # postnummer
     r"[ ][A-ZÆØÅ][a-zæøå]+(?:[ ][A-ZÆØÅ]?[a-zæøå]+){0,2}",          # bynavn
     re.UNICODE,
@@ -168,15 +168,28 @@ NAME_LABEL_PATTERN = re.compile(
 
 # Hyppige danske fornavne — efterfulgt af mindst ét efternavn (stort bogstav)
 _DANISH_FIRST_NAMES = {
-    "anders","anne","brian","camilla","caroline","charlotte","christian",
-    "christina","christopher","daniel","david","emma","erik","frederik",
-    "hanne","henrik","jacob","jakob","jens","jonas","julie","karen",
-    "kasper","katrine","kristian","kristina","lars","lasse","laura",
-    "lene","line","lisa","louise","lucas","magnus","maja","malene",
-    "maria","marie","martin","mathias","mette","michael","mikkel",
-    "morten","nicholas","nicolai","nicole","nina","oliver","patrick",
-    "pernille","peter","rasmus","rikke","simon","sofie","søren",
-    "thomas","tobias","tom","torben","trine","victor","victoria",
+    # Hyppige mandlige navne
+    "adam","alexander","allan","anders","andreas","arne","bent","bo",
+    "brian","carl","carsten","christian","christopher","claus","daniel",
+    "david","dennis","emil","erik","finn","flemming","frank","frederik",
+    "gert","hans","henrik","jacob","jakob","jan","jens","jesper",
+    "jonas","jørgen","kasper","kim","knud","kristian","kurt","lars",
+    "lasse","leif","lucas","magnus","marcus","martin","mathias","michael",
+    "mikkel","mogens","morten","nicholas","nicolai","niels","nikolaj",
+    "ole","oliver","oscar","patrick","per","peter","poul","preben",
+    "rasmus","rene","sebastian","simon","steffen","svend","søren",
+    "thomas","tobias","tom","torben","victor",
+    # Hyppige kvindelige navne
+    "agnes","alberte","alma","amanda","amalie","anna","anne","annette",
+    "astrid","birgit","bodil","camilla","caroline","cecilie","charlotte",
+    "christina","clara","dorte","ella","emilie","emma","frederikke",
+    "frida","freja","gitte","hanne","heidi","ida","ingrid","inge",
+    "isabella","josephine","julie","karen","katrine","kirsten","kristina",
+    "laura","lene","line","lisa","lone","lotte","louise","maja",
+    "malene","maria","marie","marianne","mathilde","mette","nanna",
+    "nicole","nina","nora","pernille","pia","rebecca","rikke","sara",
+    "sigrid","signe","simone","sofie","stine","susanne","tina","trine",
+    "vibeke","victoria",
 }
 NAME_FIRSTNAME_PATTERN = re.compile(
     r"\b(" + "|".join(sorted(_DANISH_FIRST_NAMES, key=len, reverse=True)) + r")"
