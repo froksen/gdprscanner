@@ -6,7 +6,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 
 from src.config_store import ConfigStore
-from src.events import OpenConfigEvent, ScanNowEvent, ShutdownEvent, ScanCompleteEvent, FindingEvent, ScanProgressEvent
+from src.events import OpenConfigEvent, ScanNowEvent, ShutdownEvent, ScanCompleteEvent, FindingEvent, FileFinding, ScanProgressEvent
 from src.config_dialog import ConfigDialog
 from src.scan_engine import ScanEngine
 from src import styles
@@ -85,17 +85,20 @@ class UIThread:
             self.event_queue.put(ScanProgressEvent(current=current, total=total, current_file=current_file))
 
         result = self.scan_engine.scan(progress_callback=_progress)
-        for finding in result.findings:
-            logging.info("Finding: %s: %s %s", finding.path, finding.reason, finding.snippet or "")
-            self.event_queue.put(
-                FindingEvent(
-                    path=finding.path,
-                    reason=finding.reason,
-                    snippet=finding.snippet,
-                    age_days=finding.age_days,
-                    line_number=finding.line_number,
-                )
-            )
+
+        # Group all findings by file — one FindingEvent per file
+        grouped: dict = {}
+        for f in result.findings:
+            if f.path not in grouped:
+                grouped[f.path] = FindingEvent(path=f.path, age_days=f.age_days, findings=[])
+            grouped[f.path].findings.append(FileFinding(
+                reason=f.reason, snippet=f.snippet, line_number=f.line_number
+            ))
+
+        for event in grouped.values():
+            logging.info("Fund i '%s': %d træffere", event.path, len(event.findings))
+            self.event_queue.put(event)
+
         self.event_queue.put(ScanCompleteEvent(files_scanned=result.files_scanned, findings_count=len(result.findings)))
 
     def _update_scan_progress(self, event: ScanProgressEvent) -> None:
@@ -127,24 +130,26 @@ class UIThread:
         self._show_finding_dialog(event)
 
     def _show_finding_dialog(self, event: FindingEvent) -> None:
-        accent, accent_bg = styles.severity_colors(event.reason)
+        n = len(event.findings)
+        header_text = f"  Fundet {n} GDPR-tr\u00e6ffer i fil"
 
         dlg = tk.Toplevel(self.root)
+        dlg.withdraw()
         dlg.configure(background=styles.BG)
-        dlg.title("GDPR Scanner — Fundet PII")
+        dlg.title("GDPR Scanner \u2014 Fundet PII")
         dlg.grab_set()
-        dlg.minsize(520, 320)
-        dlg.resizable(True, False)
+        dlg.minsize(560, 380)
+        dlg.resizable(True, True)
         self._finding_dialog = dlg
 
-        # Coloured header band
-        header = tk.Frame(dlg, bg=accent, height=52)
+        # Header band
+        header = tk.Frame(dlg, bg=styles.BLUE, height=52)
         header.pack(fill="x")
         header.pack_propagate(False)
         tk.Label(
             header,
-            text=f"  {event.reason}",
-            bg=accent, fg="white",
+            text=header_text,
+            bg=styles.BLUE, fg="white",
             font=("Segoe UI", 10, "bold"),
             anchor="w",
         ).place(relx=0, rely=0.5, anchor="w", x=12)
@@ -153,47 +158,47 @@ class UIThread:
         body = tk.Frame(dlg, bg=styles.BG)
         body.pack(fill="both", expand=True, padx=20, pady=(14, 4))
 
-        # Violation description
-        desc = self._get_violation_description(event.reason)
-        tk.Label(
-            body, text=desc, bg=styles.BG, fg=styles.TEXT2,
-            font=("Segoe UI", 9), wraplength=460, justify="left", anchor="w",
-        ).pack(anchor="w", pady=(0, 10))
-
-        # Separator
-        tk.Frame(body, bg=styles.BORDER, height=1).pack(fill="x", pady=(0, 10))
-
-        # File info grid
+        # File info
         info_frame = tk.Frame(body, bg=styles.BG)
         info_frame.pack(fill="x")
 
-        def _info_row(parent, label, value, value_color=styles.TEXT):
+        def _info_row(parent, label, value):
             row = tk.Frame(parent, bg=styles.BG)
             row.pack(fill="x", pady=2)
             tk.Label(row, text=label, bg=styles.BG, fg=styles.TEXT2,
                      font=("Segoe UI", 9), width=10, anchor="w").pack(side="left")
-            tk.Label(row, text=value, bg=styles.BG, fg=value_color,
-                     font=("Segoe UI", 9), anchor="w", wraplength=380).pack(side="left")
+            tk.Label(row, text=value, bg=styles.BG, fg=styles.TEXT,
+                     font=("Segoe UI", 9), anchor="w", wraplength=420).pack(side="left")
 
         _info_row(info_frame, "Fil:", event.path)
         if event.age_days is not None:
             _info_row(info_frame, "Alder:", f"{event.age_days} dage")
 
-        # Snippet box
-        if event.snippet:
-            loc = f"Linje {event.line_number}: " if event.line_number is not None else ""
-            snip_outer = tk.Frame(body, bg=accent_bg, bd=0)
-            snip_outer.pack(fill="x", pady=(10, 0))
-            tk.Label(snip_outer, text="Fundsted", bg=accent_bg, fg=styles.TEXT2,
-                     font=("Segoe UI", 8)).pack(anchor="w", padx=10, pady=(6, 2))
-            snip_text = tk.Text(
-                snip_outer, height=2, wrap="word", font=("Consolas", 9),
-                bg=accent_bg, fg=styles.TEXT, relief="flat",
-                borderwidth=0, padx=10, pady=4, state="normal",
-            )
-            snip_text.insert("1.0", f"{loc}{event.snippet}")
-            snip_text.configure(state="disabled")
-            snip_text.pack(fill="x", padx=0, pady=(0, 8))
+        # Separator
+        tk.Frame(body, bg=styles.BORDER, height=1).pack(fill="x", pady=(10, 6))
+
+        # Findings table
+        tree_frame = tk.Frame(body, bg=styles.BG)
+        tree_frame.pack(fill="both", expand=True)
+
+        cols = ("type", "linje", "fundsted")
+        tree = ttk.Treeview(tree_frame, columns=cols, show="headings", height=6)
+        tree.heading("type", text="Type")
+        tree.heading("linje", text="Linje")
+        tree.heading("fundsted", text="Fundsted")
+        tree.column("type", width=160, stretch=False)
+        tree.column("linje", width=55, stretch=False, anchor="center")
+        tree.column("fundsted", width=300, stretch=True)
+
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=vsb.set)
+        tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
+        for f in event.findings:
+            linje = str(f.line_number) if f.line_number is not None else ""
+            fundsted = f.snippet or ""
+            tree.insert("", "end", values=(f.reason, linje, fundsted))
 
         # Action buttons
         sep = tk.Frame(dlg, bg=styles.BORDER, height=1)
@@ -202,7 +207,7 @@ class UIThread:
         btn_frame = ttk.Frame(dlg)
         btn_frame.pack(fill="x", padx=16, pady=12)
 
-        ttk.Button(btn_frame, text="Åbn fil",
+        ttk.Button(btn_frame, text="\u00c5bn fil",
                    command=lambda: self._open_file(event.path)).pack(side="left", padx=(0, 6))
         ttk.Button(btn_frame, text="Slet fil", style="Danger.TButton",
                    command=lambda: self._handle_finding_action(event, "delete")).pack(side="left", padx=(0, 6))
@@ -212,6 +217,15 @@ class UIThread:
                    command=lambda: self._handle_finding_action(event, "ignore")).pack(side="left", padx=(0, 6))
         ttk.Button(btn_frame, text="Afbryd scanning",
                    command=self._abort_scan).pack(side="right")
+
+        # Centre on screen
+        dlg.update_idletasks()
+        w = dlg.winfo_reqwidth()
+        h = dlg.winfo_reqheight()
+        sw = dlg.winfo_screenwidth()
+        sh = dlg.winfo_screenheight()
+        dlg.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
+        dlg.deiconify()
 
     def _handle_finding_action(self, event: FindingEvent, action: str) -> None:
         if action == "delete":

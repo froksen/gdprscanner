@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 
 
 @dataclass
@@ -33,10 +33,17 @@ class ScanCompleteEvent:
 
 
 @dataclass
+class FileFinding:
+    """One GDPR hit within a file."""
+    reason: str
+    snippet: Optional[str] = None
+    line_number: Optional[int] = None
+
+
+@dataclass
 class FindingEvent:
+    """All GDPR hits for a single file — one event per file."""
     type: Literal["finding"] = "finding"
     path: str = ""
-    reason: str = ""
-    snippet: Optional[str] = None
     age_days: Optional[int] = None
-    line_number: Optional[int] = None
+    findings: List[FileFinding] = field(default_factory=list)
