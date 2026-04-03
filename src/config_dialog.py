@@ -64,17 +64,10 @@ class ConfigDialog:
 
         # Create Toplevel dialog (D-06: not a new tk.Tk root)
         self.dialog = tk.Toplevel(root)
+        self.dialog.withdraw()  # hide until fully built and centred
         self.dialog.configure(background=styles.BG)
         self.dialog.title("GDPR Scanner \u2014 Indstillinger")
         self.dialog.minsize(520, 420)
-
-        # Center dialog on screen
-        screen_width = self.dialog.winfo_screenwidth()
-        screen_height = self.dialog.winfo_screenheight()
-        x = (screen_width - 520) // 2
-        y = (screen_height - 420) // 2
-        self.dialog.geometry(f"+{x}+{y}")
-
         self.dialog.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # Load current config at dialog open time
@@ -113,6 +106,17 @@ class ConfigDialog:
             text="Scan nu",
             command=self._trigger_scan,
         ).pack(side="left")
+
+        # Centre on screen after all widgets are laid out
+        self.dialog.update_idletasks()
+        w = self.dialog.winfo_reqwidth()
+        h = self.dialog.winfo_reqheight()
+        sw = self.dialog.winfo_screenwidth()
+        sh = self.dialog.winfo_screenheight()
+        x = max(0, (sw - w) // 2)
+        y = max(0, (sh - h) // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        self.dialog.deiconify()  # now show it, properly positioned
 
     # ------------------------------------------------------------------
     # Tab builders
