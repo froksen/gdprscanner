@@ -24,7 +24,7 @@ echo.
 
 :: ── Trin 2: Virtuelt miljø ─────────────────────────
 echo  [2/3] Forbereder virtuelt miljoe (.venv)...
-if not exist ".venv\Scripts\pythonw.exe" (
+if not exist ".venv\Scripts\python.exe" (
     echo         Opretter nyt venv...
     python -m venv .venv
     if errorlevel 1 (
@@ -37,6 +37,15 @@ if not exist ".venv\Scripts\pythonw.exe" (
     echo         Venv oprettet.
 ) else (
     echo         Venv findes allerede.
+)
+
+:: Kopiér pythonw.exe til venv hvis den mangler (ikke altid med i venv)
+if not exist ".venv\Scripts\pythonw.exe" (
+    for /f "tokens=*" %%p in ('python -c "import sys,os; print(os.path.dirname(sys.executable))"') do (
+        if exist "%%p\pythonw.exe" (
+            copy "%%p\pythonw.exe" ".venv\Scripts\pythonw.exe" >nul
+        )
+    )
 )
 echo.
 
