@@ -66,6 +66,6 @@ echo  ================================================
 echo       Starter GDPR Scanner i systembakken...
 echo  ================================================
 echo.
-start "" .venv\Scripts\pythonw.exe -m src.main
+start "" "%~dp0.venv\Scripts\pythonw.exe" -m src.main
 
 exit /b 0
