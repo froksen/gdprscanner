@@ -49,8 +49,7 @@ echo.
 
 rem --- Trin 3: Installer afhangigheder ---
 echo  [3/3] Installerer afhaengigheder...
-call .venv\Scripts\activate.bat
-pip install -r requirements.txt -q --disable-pip-version-check
+"%~dp0.venv\Scripts\python.exe" -m pip install -r requirements.txt -q --disable-pip-version-check
 if errorlevel 1 (
     echo.
     echo  FEJL: Installation af afhaengigheder mislykkedes.
